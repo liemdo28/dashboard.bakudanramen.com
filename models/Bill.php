@@ -11,6 +11,10 @@ class Bill {
         return $this->db->tableExists('bill_attachments');
     }
 
+    private function hasPaidAtColumn() {
+        return $this->db->columnExists('bills', 'paid_at');
+    }
+
     public function getByStore($storeId, $month=null, $year=null) {
         $params = [$storeId];
         $where = "WHERE b.store_id = ?";
@@ -124,10 +128,16 @@ class Bill {
     }
 
     public function markPaid($id) {
+        if (!$this->hasPaidAtColumn()) {
+            return $this->db->execute("UPDATE bills SET status='paid' WHERE id = ?", [$id]);
+        }
         return $this->db->execute("UPDATE bills SET status='paid', paid_at = NOW() WHERE id = ?", [$id]);
     }
 
     public function markPending($id) {
+        if (!$this->hasPaidAtColumn()) {
+            return $this->db->execute("UPDATE bills SET status='pending' WHERE id = ?", [$id]);
+        }
         return $this->db->execute("UPDATE bills SET status='pending', paid_at = NULL WHERE id = ?", [$id]);
     }
 
