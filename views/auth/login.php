@@ -33,20 +33,12 @@ body.login-page::before {
     content: "";
     position: absolute;
     inset: 18px;
-    border: 1px solid rgba(255, 255, 255, .05);
+    border: 0;
     pointer-events: none;
 }
 
 body.login-page::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: linear-gradient(180deg, rgba(0,0,0,.6), transparent 92%);
-    pointer-events: none;
+    display: none;
 }
 
 .login-stage {
@@ -316,7 +308,6 @@ body.login-page::after {
         <div class="login-copy">
             <div class="eyebrow">Secure Access</div>
             <h2>Đăng nhập để tiếp tục</h2>
-            <p>Dashboard nền đen, điểm nhấn đỏ, gọn và rõ hơn để tập trung vào công việc.</p>
         </div>
 
         <?php if ($msg = flash('error')): ?>
