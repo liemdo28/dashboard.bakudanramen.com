@@ -124,4 +124,25 @@ class Database {
         $this->columnCache[$cacheKey] = $exists;
         return $exists;
     }
+
+    public function invalidateSchemaCache($table = null, $column = null) {
+        if ($table === null) {
+            $this->tableCache = [];
+            $this->columnCache = [];
+            return;
+        }
+
+        unset($this->tableCache[$table]);
+
+        if ($column !== null) {
+            unset($this->columnCache[$table . '.' . $column]);
+            return;
+        }
+
+        foreach (array_keys($this->columnCache) as $cacheKey) {
+            if (strpos($cacheKey, $table . '.') === 0) {
+                unset($this->columnCache[$cacheKey]);
+            }
+        }
+    }
 }

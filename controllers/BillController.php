@@ -39,6 +39,7 @@ class BillController {
         $nextMonth = $month + 1; $nextYear = $year;
         if ($nextMonth > 12) { $nextMonth = 1; $nextYear++; }
 
+        $this->billModel->ensureRecurringForMonth($storeId, $month, $year);
         $bills = $this->billModel->getByStore($storeId, $month, $year);
 
         // Load attachments for each bill
@@ -121,6 +122,8 @@ class BillController {
             $vendorName = $v ? $v['name'] : '';
         }
 
+        $repeat = $this->extractRepeatSettings($_POST, $due);
+
         $billId = $this->billModel->create([
             'store_id' => $storeId,
             'title' => $title,
@@ -130,6 +133,9 @@ class BillController {
             'due_date' => $due,
             'note' => trim($_POST['note'] ?? ''),
             'color' => trim($_POST['color'] ?? ''),
+            'repeat_type' => $repeat['repeat_type'],
+            'repeat_interval' => $repeat['repeat_interval'],
+            'repeat_day' => $repeat['repeat_day'],
         ]);
 
         // Handle file upload if present
@@ -176,6 +182,8 @@ class BillController {
             $status = 'pending';
         }
 
+        $repeat = $this->extractRepeatSettings($_POST, $due);
+
         $this->billModel->update($billId, [
             'title' => $title,
             'vendor' => $vendorName,
@@ -185,7 +193,14 @@ class BillController {
             'status' => $status,
             'note' => trim($_POST['note'] ?? ''),
             'color' => trim($_POST['color'] ?? ''),
+            'repeat_type' => $repeat['repeat_type'],
+            'repeat_interval' => $repeat['repeat_interval'],
+            'repeat_day' => $repeat['repeat_day'],
+            'repeat_parent_id' => $bill['repeat_parent_id'] ?? null,
         ]);
+
+        $repeatSourceId = !empty($bill['repeat_parent_id']) ? (int)$bill['repeat_parent_id'] : (int)$billId;
+        $this->billModel->updateRepeatSettings($repeatSourceId, $repeat);
 
         // If status changed to paid, track paid_at
         if ($status === 'paid' && $bill['status'] !== 'paid') {
@@ -312,5 +327,26 @@ class BillController {
                 'mime_type' => $file['type'],
             ]);
         }
+    }
+
+    private function extractRepeatSettings($payload, $dueDate) {
+        $type = strtolower(trim((string)($payload['repeat_type'] ?? 'none')));
+        if ($type !== 'monthly') {
+            return [
+                'repeat_type' => 'none',
+                'repeat_interval' => 1,
+                'repeat_day' => null,
+            ];
+        }
+
+        $interval = max(1, (int)($payload['repeat_interval'] ?? 1));
+        $defaultDay = $dueDate ? (int)date('j', strtotime($dueDate)) : 1;
+        $day = max(1, min(31, (int)($payload['repeat_day'] ?? $defaultDay)));
+
+        return [
+            'repeat_type' => 'monthly',
+            'repeat_interval' => $interval,
+            'repeat_day' => $day,
+        ];
     }
 }

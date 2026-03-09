@@ -104,11 +104,30 @@ ob_start();
                 <div class="grid grid-2" style="gap:10px">
                     <div class="form-group">
                         <label>Due date *</label>
-                        <input class="form-control" type="date" name="due_date" required value="<?= e($today) ?>">
+                        <input class="form-control" type="date" name="due_date" id="due-date-create" required value="<?= e($today) ?>" onchange="syncRepeatDayFromDue('create')">
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
                         <input class="form-control" type="number" step="0.01" name="amount" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Repeat</label>
+                    <div class="repeat-builder">
+                        <div class="repeat-controls">
+                            <select class="form-control" name="repeat_type" id="repeat-type-create" onchange="toggleRepeatFields('create', true)">
+                                <option value="none">Không lặp</option>
+                                <option value="monthly">Tháng</option>
+                            </select>
+                            <div class="repeat-frequency-row repeat-hidden" id="repeat-config-create">
+                                <span class="repeat-inline-label">Mỗi</span>
+                                <input class="form-control repeat-number" type="number" min="1" max="24" name="repeat_interval" id="repeat-interval-create" value="1">
+                                <span class="repeat-inline-label">tháng, ngày</span>
+                                <input class="form-control repeat-number" type="number" min="1" max="31" name="repeat_day" id="repeat-day-create" value="<?= (int)date('j', strtotime($today)) ?>">
+                            </div>
+                        </div>
+                        <div class="repeat-hint">Ví dụ: Tháng → 1 → ngày 8 sẽ tự lặp vào ngày 8 mỗi tháng.</div>
                     </div>
                 </div>
 
@@ -292,11 +311,30 @@ ob_start();
                 <div class="grid grid-2" style="gap:10px">
                     <div class="form-group">
                         <label>Due date *</label>
-                        <input class="form-control" type="date" name="due_date" id="edit-due_date" required>
+                        <input class="form-control" type="date" name="due_date" id="edit-due_date" required onchange="syncRepeatDayFromDue('edit')">
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
                         <input class="form-control" type="number" step="0.01" name="amount" id="edit-amount">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Repeat</label>
+                    <div class="repeat-builder">
+                        <div class="repeat-controls">
+                            <select class="form-control" name="repeat_type" id="repeat-type-edit" onchange="toggleRepeatFields('edit', true)">
+                                <option value="none">Không lặp</option>
+                                <option value="monthly">Tháng</option>
+                            </select>
+                            <div class="repeat-frequency-row repeat-hidden" id="repeat-config-edit">
+                                <span class="repeat-inline-label">Mỗi</span>
+                                <input class="form-control repeat-number" type="number" min="1" max="24" name="repeat_interval" id="repeat-interval-edit" value="1">
+                                <span class="repeat-inline-label">tháng, ngày</span>
+                                <input class="form-control repeat-number" type="number" min="1" max="31" name="repeat_day" id="repeat-day-edit" value="1">
+                            </div>
+                        </div>
+                        <div class="repeat-hint">Bật Repeat để hệ thống tự sinh bill cho các tháng sau.</div>
                     </div>
                 </div>
 
@@ -375,6 +413,13 @@ function openEditModal(billId) {
     document.getElementById('edit-delete-btn').href = '<?= APP_URL ?>/bills/' + billId + '/delete';
     document.getElementById('edit-duplicate-btn').href = '<?= APP_URL ?>/bills/' + billId + '/duplicate';
 
+    const repeatType = bill.repeat_type || 'none';
+    document.getElementById('repeat-type-edit').value = repeatType;
+    document.getElementById('repeat-interval-edit').value = bill.repeat_interval || 1;
+    document.getElementById('repeat-day-edit').value = bill.repeat_day || ((bill.due_date || '').split('-')[2] || 1);
+    document.getElementById('repeat-day-edit').dataset.manual = '0';
+    toggleRepeatFields('edit', true);
+
     // Set status
     const statusSelect = document.getElementById('edit-status');
     statusSelect.value = bill.status || 'pending';
@@ -443,6 +488,33 @@ function toggleNewVendor(context) {
     }
 }
 
+function toggleRepeatFields(context, forceSyncDay = false) {
+    const typeSelect = document.getElementById('repeat-type-' + context);
+    const config = document.getElementById('repeat-config-' + context);
+    if (!typeSelect || !config) return;
+
+    const isMonthly = typeSelect.value === 'monthly';
+    config.classList.toggle('repeat-hidden', !isMonthly);
+    if (isMonthly) {
+        syncRepeatDayFromDue(context, forceSyncDay);
+    }
+}
+
+function syncRepeatDayFromDue(context, force = false) {
+    const dueInput = document.getElementById(context === 'edit' ? 'edit-due_date' : 'due-date-create');
+    const repeatDayInput = document.getElementById('repeat-day-' + context);
+    const repeatTypeSelect = document.getElementById('repeat-type-' + context);
+    if (!dueInput || !repeatDayInput || !repeatTypeSelect || repeatTypeSelect.value !== 'monthly') return;
+
+    const dueDate = dueInput.value || '';
+    if (!dueDate.includes('-')) return;
+
+    const day = parseInt(dueDate.split('-')[2], 10) || 1;
+    if (force || repeatDayInput.dataset.manual !== '1' || !repeatDayInput.value) {
+        repeatDayInput.value = day;
+    }
+}
+
 function rgbToHex(rgb) {
     if (!rgb || rgb.startsWith('#')) return rgb;
     const m = rgb.match(/\d+/g);
@@ -478,6 +550,22 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     openEditModal(trigger.getAttribute('data-bill-trigger'));
 });
+
+const repeatDayCreate = document.getElementById('repeat-day-create');
+if (repeatDayCreate) {
+    repeatDayCreate.addEventListener('input', () => {
+        repeatDayCreate.dataset.manual = '1';
+    });
+}
+
+const repeatDayEdit = document.getElementById('repeat-day-edit');
+if (repeatDayEdit) {
+    repeatDayEdit.addEventListener('input', () => {
+        repeatDayEdit.dataset.manual = '1';
+    });
+}
+
+toggleRepeatFields('create', true);
 </script>
 
 <?php

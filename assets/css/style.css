@@ -1398,6 +1398,39 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .bill-title{font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bill-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .bill-edit-action{justify-content:center;min-width:60px}
+.repeat-builder{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,23,68,.04));
+    padding:12px;
+}
+.repeat-controls{
+    display:grid;
+    grid-template-columns:180px 1fr;
+    gap:10px;
+    align-items:center;
+}
+.repeat-frequency-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+.repeat-inline-label{
+    color:var(--text-muted);
+    font-size:13px;
+    white-space:nowrap;
+}
+.repeat-number{
+    width:90px;
+    min-width:90px;
+}
+.repeat-hint{
+    color:var(--text-muted);
+    font-size:12px;
+    margin-top:10px;
+}
+.repeat-hidden{display:none}
 
 /* Calendar for bills */
 .calendar-wrap{padding:12px}
@@ -1505,3 +1538,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* Store card flex fix */
 .store-card{flex-wrap:nowrap}
+
+@media (max-width: 768px){
+    .repeat-controls{grid-template-columns:1fr}
+}
