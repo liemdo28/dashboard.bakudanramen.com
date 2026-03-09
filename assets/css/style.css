@@ -1306,6 +1306,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     box-shadow: 0 0 18px rgba(0,245,255,.10);
     border-color: rgba(0,245,255,.20);
 }
+.store-card-clickable{cursor:pointer}
+.store-card-clickable:focus-visible{
+    outline:2px solid rgba(0,245,255,.38);
+    outline-offset:2px;
+}
 .store-dot{width:10px;height:10px;border-radius:99px;box-shadow:0 0 14px rgba(0,245,255,.20)}
 .store-main{min-width:0;flex:1}
 .store-name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

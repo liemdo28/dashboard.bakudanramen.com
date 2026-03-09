@@ -38,8 +38,15 @@ ob_start();
                         $totalBills = $bc ? (int)$bc['total'] : 0;
                         $unpaidBills = $bc ? (int)$bc['unpaid'] : 0;
                     ?>
-                        <div class="store-card" style="position:relative">
-                            <a href="<?= APP_URL ?>/bills/store/<?= $s['id'] ?>" style="display:flex;align-items:center;gap:12px;flex:1;text-decoration:none;color:var(--text)">
+                        <div
+                            class="store-card store-card-clickable"
+                            style="position:relative"
+                            data-store-link="<?= APP_URL ?>/bills/store/<?= $s['id'] ?>"
+                            tabindex="0"
+                            role="link"
+                            aria-label="Mở cửa hàng <?= e($s['name']) ?>"
+                        >
+                            <div style="display:flex;align-items:center;gap:12px;flex:1;text-decoration:none;color:var(--text)">
                                 <span class="store-dot" style="background:<?= e($s['color'] ?: 'var(--neon-cyan)') ?>"></span>
                                 <div class="store-main">
                                     <div class="store-name"><?= e($s['name']) ?></div>
@@ -54,10 +61,10 @@ ob_start();
                                     <?php endif; ?>
                                 </div>
                                 <div class="store-arrow">→</div>
-                            </a>
-                            <div style="display:flex;gap:4px;margin-left:8px" onclick="event.stopPropagation()">
-                                <button class="btn-ghost btn-sm" onclick="openStoreEditModal(<?= $s['id'] ?>, <?= e(json_encode($s['name'])) ?>, <?= e(json_encode($s['address'] ?? '')) ?>, <?= e(json_encode($s['color'] ?? '')) ?>)" title="Edit" style="font-size:14px;padding:4px 6px">✏️</button>
-                                <a class="btn-ghost btn-sm" href="<?= APP_URL ?>/bills/store/<?= $s['id'] ?>/delete" onclick="return confirm('Xóa store này? (Store sẽ bị ẩn)')" title="Delete" style="font-size:14px;padding:4px 6px;color:var(--neon-pink)">🗑️</a>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-left:8px" data-no-store-nav="true">
+                                <button class="btn-ghost btn-sm" type="button" onclick="openStoreEditModal(<?= $s['id'] ?>, <?= e(json_encode($s['name'])) ?>, <?= e(json_encode($s['address'] ?? '')) ?>, <?= e(json_encode($s['color'] ?? '')) ?>)" title="Edit" style="font-size:14px;padding:4px 6px">✏️</button>
+                                <a class="btn-ghost btn-sm" data-no-store-nav="true" href="<?= APP_URL ?>/bills/store/<?= $s['id'] ?>/delete" onclick="return confirm('Xóa store này? (Store sẽ bị ẩn)')" title="Delete" style="font-size:14px;padding:4px 6px;color:var(--neon-pink)">🗑️</a>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -134,6 +141,24 @@ function openStoreEditModal(id, name, address, color) {
     document.getElementById('storeEditModal').style.display = 'flex';
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('storeEditModal').style.display = 'none'; });
+
+document.addEventListener('click', e => {
+    if (e.target.closest('[data-no-store-nav="true"]')) return;
+
+    const card = e.target.closest('[data-store-link]');
+    if (!card) return;
+
+    window.location.href = card.getAttribute('data-store-link');
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.store-card-clickable');
+    if (!card || card !== e.target) return;
+
+    e.preventDefault();
+    window.location.href = card.getAttribute('data-store-link');
+});
 </script>
 
 <?php
