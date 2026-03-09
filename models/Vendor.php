@@ -3,19 +3,31 @@ class Vendor {
     private $db;
     public function __construct() { $this->db = Database::getInstance(); }
 
+    private function hasVendorsTable() {
+        return $this->db->tableExists('vendors');
+    }
+
+    private function hasAttachmentsTable() {
+        return $this->db->tableExists('vendor_attachments');
+    }
+
     public function getAll() {
+        if (!$this->hasVendorsTable()) return [];
         return $this->db->fetchAll("SELECT * FROM vendors ORDER BY name");
     }
 
     public function getAllActive() {
+        if (!$this->hasVendorsTable()) return [];
         return $this->db->fetchAll("SELECT * FROM vendors WHERE is_active = 1 ORDER BY name");
     }
 
     public function find($id) {
+        if (!$this->hasVendorsTable()) return null;
         return $this->db->fetch("SELECT * FROM vendors WHERE id = ?", [$id]);
     }
 
     public function create($data) {
+        if (!$this->hasVendorsTable()) return null;
         return $this->db->insert(
             "INSERT INTO vendors (name, payment_url, login_info, notes, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())",
             [$data['name'], $data['payment_url'] ?? null, $data['login_info'] ?? null, $data['notes'] ?? null]
@@ -23,6 +35,7 @@ class Vendor {
     }
 
     public function update($id, $data) {
+        if (!$this->hasVendorsTable()) return 0;
         return $this->db->execute(
             "UPDATE vendors SET name = ?, payment_url = ?, login_info = ?, notes = ?, updated_at = NOW() WHERE id = ?",
             [$data['name'], $data['payment_url'] ?? null, $data['login_info'] ?? null, $data['notes'] ?? null, $id]
@@ -30,19 +43,23 @@ class Vendor {
     }
 
     public function delete($id) {
+        if (!$this->hasVendorsTable()) return 0;
         return $this->db->execute("DELETE FROM vendors WHERE id = ?", [$id]);
     }
 
     public function toggleActive($id) {
+        if (!$this->hasVendorsTable()) return 0;
         return $this->db->execute("UPDATE vendors SET is_active = NOT is_active, updated_at = NOW() WHERE id = ?", [$id]);
     }
 
     // Attachments
     public function getAttachments($vendorId) {
+        if (!$this->hasAttachmentsTable()) return [];
         return $this->db->fetchAll("SELECT * FROM vendor_attachments WHERE vendor_id = ? ORDER BY created_at DESC", [$vendorId]);
     }
 
     public function addAttachment($data) {
+        if (!$this->hasAttachmentsTable()) return null;
         return $this->db->insert(
             "INSERT INTO vendor_attachments (vendor_id, filename, original_name, file_size, mime_type, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
             [$data['vendor_id'], $data['filename'], $data['original_name'], $data['file_size'], $data['mime_type']]
@@ -50,10 +67,12 @@ class Vendor {
     }
 
     public function findAttachment($id) {
+        if (!$this->hasAttachmentsTable()) return null;
         return $this->db->fetch("SELECT * FROM vendor_attachments WHERE id = ?", [$id]);
     }
 
     public function deleteAttachment($id) {
+        if (!$this->hasAttachmentsTable()) return null;
         $att = $this->findAttachment($id);
         if ($att) {
             $filepath = UPLOAD_DIR . $att['filename'];
@@ -65,6 +84,7 @@ class Vendor {
 
     // Quick create from bill form - returns new vendor ID
     public function quickCreate($name) {
+        if (!$this->hasVendorsTable()) return null;
         return $this->db->insert(
             "INSERT INTO vendors (name, is_active, created_at) VALUES (?, 1, NOW())",
             [$name]

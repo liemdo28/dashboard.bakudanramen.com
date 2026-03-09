@@ -3,6 +3,14 @@ class Bill {
     private $db;
     public function __construct() { $this->db = Database::getInstance(); }
 
+    private function supportsVendors() {
+        return $this->db->tableExists('vendors') && $this->db->columnExists('bills', 'vendor_id');
+    }
+
+    private function hasBillAttachments() {
+        return $this->db->tableExists('bill_attachments');
+    }
+
     public function getByStore($storeId, $month=null, $year=null) {
         $params = [$storeId];
         $where = "WHERE b.store_id = ?";
@@ -10,12 +18,20 @@ class Bill {
             $where .= " AND MONTH(b.due_date) = ? AND YEAR(b.due_date) = ?";
             $params[] = $month; $params[] = $year;
         }
+
+        $vendorJoin = '';
+        $vendorFields = "NULL AS vendor_name, NULL AS vendor_payment_url";
+        if ($this->supportsVendors()) {
+            $vendorJoin = "LEFT JOIN vendors v ON v.id = b.vendor_id";
+            $vendorFields = "v.name AS vendor_name, v.payment_url AS vendor_payment_url";
+        }
+
         return $this->db->fetchAll(
             "SELECT b.*, s.name AS store_name, s.color AS store_color,
-                    v.name AS vendor_name, v.payment_url AS vendor_payment_url
+                    $vendorFields
              FROM bills b
              JOIN stores s ON s.id = b.store_id
-             LEFT JOIN vendors v ON v.id = b.vendor_id
+             $vendorJoin
              $where
              ORDER BY b.due_date ASC, FIELD(b.status,'overdue','pending','paid') ASC, b.title ASC",
             $params
@@ -31,14 +47,31 @@ class Bill {
     }
 
     public function create($data) {
+        if ($this->db->columnExists('bills', 'vendor_id')) {
+            return $this->db->insert(
+                "INSERT INTO bills (store_id, title, vendor, vendor_id, amount, due_date, status, note, color, created_by, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())",
+                [
+                    $data['store_id'],
+                    $data['title'],
+                    $data['vendor'] ?? null,
+                    $data['vendor_id'] ?? null,
+                    $data['amount'] ?? null,
+                    $data['due_date'],
+                    $data['note'] ?? null,
+                    $data['color'] ?? null,
+                    $_SESSION['user_id'] ?? null
+                ]
+            );
+        }
+
         return $this->db->insert(
-            "INSERT INTO bills (store_id, title, vendor, vendor_id, amount, due_date, status, note, color, created_by, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())",
+            "INSERT INTO bills (store_id, title, vendor, amount, due_date, status, note, color, created_by, created_at)
+             VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())",
             [
                 $data['store_id'],
                 $data['title'],
                 $data['vendor'] ?? null,
-                $data['vendor_id'] ?? null,
                 $data['amount'] ?? null,
                 $data['due_date'],
                 $data['note'] ?? null,
@@ -49,12 +82,28 @@ class Bill {
     }
 
     public function update($id, $data) {
+        if ($this->db->columnExists('bills', 'vendor_id')) {
+            return $this->db->execute(
+                "UPDATE bills SET title = ?, vendor = ?, vendor_id = ?, amount = ?, due_date = ?, status = ?, note = ?, color = ?, updated_at = NOW() WHERE id = ?",
+                [
+                    $data['title'],
+                    $data['vendor'] ?? null,
+                    $data['vendor_id'] ?? null,
+                    $data['amount'] ?? null,
+                    $data['due_date'],
+                    $data['status'] ?? 'pending',
+                    $data['note'] ?? null,
+                    $data['color'] ?? null,
+                    $id
+                ]
+            );
+        }
+
         return $this->db->execute(
-            "UPDATE bills SET title = ?, vendor = ?, vendor_id = ?, amount = ?, due_date = ?, status = ?, note = ?, color = ?, updated_at = NOW() WHERE id = ?",
+            "UPDATE bills SET title = ?, vendor = ?, amount = ?, due_date = ?, status = ?, note = ?, color = ?, updated_at = NOW() WHERE id = ?",
             [
                 $data['title'],
                 $data['vendor'] ?? null,
-                $data['vendor_id'] ?? null,
                 $data['amount'] ?? null,
                 $data['due_date'],
                 $data['status'] ?? 'pending',
@@ -132,10 +181,12 @@ class Bill {
 
     // Attachments
     public function getAttachments($billId) {
+        if (!$this->hasBillAttachments()) return [];
         return $this->db->fetchAll("SELECT * FROM bill_attachments WHERE bill_id = ? ORDER BY created_at DESC", [$billId]);
     }
 
     public function addAttachment($data) {
+        if (!$this->hasBillAttachments()) return null;
         return $this->db->insert(
             "INSERT INTO bill_attachments (bill_id, filename, original_name, file_size, mime_type, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
             [$data['bill_id'], $data['filename'], $data['original_name'], $data['file_size'], $data['mime_type']]
@@ -143,10 +194,12 @@ class Bill {
     }
 
     public function findAttachment($id) {
+        if (!$this->hasBillAttachments()) return null;
         return $this->db->fetch("SELECT * FROM bill_attachments WHERE id = ?", [$id]);
     }
 
     public function deleteAttachment($id) {
+        if (!$this->hasBillAttachments()) return null;
         $att = $this->findAttachment($id);
         if ($att) {
             $filepath = UPLOAD_DIR . $att['filename'];

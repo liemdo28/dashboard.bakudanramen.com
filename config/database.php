@@ -23,6 +23,8 @@ define('SESSION_LIFETIME', 86400); // 24 hours
 class Database {
     private static $instance = null;
     private $pdo;
+    private $tableCache = [];
+    private $columnCache = [];
 
     private function __construct() {
         try {
@@ -54,6 +56,11 @@ class Database {
         return $stmt;
     }
 
+    public function execute($sql, $params = []) {
+        $stmt = $this->query($sql, $params);
+        return $stmt->rowCount();
+    }
+
     public function fetch($sql, $params = []) {
         return $this->query($sql, $params)->fetch();
     }
@@ -75,5 +82,31 @@ class Database {
     public function delete($sql, $params = []) {
         $stmt = $this->query($sql, $params);
         return $stmt->rowCount();
+    }
+
+    public function tableExists($table) {
+        if (array_key_exists($table, $this->tableCache)) {
+            return $this->tableCache[$table];
+        }
+
+        $exists = (bool) $this->fetch("SHOW TABLES LIKE ?", [$table]);
+        $this->tableCache[$table] = $exists;
+        return $exists;
+    }
+
+    public function columnExists($table, $column) {
+        $cacheKey = $table . '.' . $column;
+        if (array_key_exists($cacheKey, $this->columnCache)) {
+            return $this->columnCache[$cacheKey];
+        }
+
+        if (!$this->tableExists($table)) {
+            $this->columnCache[$cacheKey] = false;
+            return false;
+        }
+
+        $exists = (bool) $this->fetch("SHOW COLUMNS FROM `$table` LIKE ?", [$column]);
+        $this->columnCache[$cacheKey] = $exists;
+        return $exists;
     }
 }
