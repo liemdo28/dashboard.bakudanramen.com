@@ -8,6 +8,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      DREAMHOST_HOST: pdx1-shared-a3-05.dreamhost.com
+      DREAMHOST_USER: liemdo0208
 
     steps:
       - name: Checkout code
@@ -18,14 +21,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DREAMHOST_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p 22 pdx1-shared-a3-05.dreamhost.com >> ~/.ssh/known_hosts
-          printf "Host dreamhost\n  HostName pdx1-shared-a3-05.dreamhost.com\n  User liemdo0208\n  IdentityFile ~/.ssh/id_rsa\n  IdentitiesOnly yes\n  PubkeyAuthentication yes\n" > ~/.ssh/config
-          chmod 600 ~/.ssh/config
+          ssh-keyscan -p 22 "$DREAMHOST_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload to DreamHost
         run: |
           rsync -avz --delete \
             --exclude ".git" \
             --exclude ".github" \
-            -e "ssh -F ~/.ssh/config" \
-            ./ dreamhost:~/dashboard.bakudanramen.com/
+            -e "ssh -i $HOME/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            ./ "$DREAMHOST_USER@$DREAMHOST_HOST:~/dashboard.bakudanramen.com/"
