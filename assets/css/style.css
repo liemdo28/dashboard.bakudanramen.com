@@ -1405,22 +1405,31 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     padding:12px;
 }
 .repeat-controls{
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:10px;
+    display:flex;
     align-items:center;
+    flex-wrap:nowrap;
+    gap:10px;
 }
 .repeat-controls-inline .form-control{
     margin:0;
+    width:auto;
 }
 .repeat-type-select{
-    min-width:140px;
+    flex:1.25 1 0;
+    min-width:150px;
+}
+.repeat-controls .repeat-number{
+    flex:0 0 96px;
 }
 .repeat-anchor-select.repeat-anchor-readonly{
     opacity:.9;
     color:var(--text-muted);
     background:rgba(255,255,255,.04);
     cursor:default;
+}
+.repeat-anchor-select{
+    flex:1.15 1 0;
+    min-width:150px;
 }
 .repeat-number{
     min-width:90px;
@@ -1538,6 +1547,14 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* Store card flex fix */
 .store-card{flex-wrap:nowrap}
 
-@media (max-width: 768px){
-    .repeat-controls{grid-template-columns:1fr}
+@media (max-width: 560px){
+    .repeat-controls{
+        flex-wrap:wrap;
+    }
+    .repeat-type-select,
+    .repeat-controls .repeat-number,
+    .repeat-anchor-select{
+        flex:1 1 100%;
+        min-width:0;
+    }
 }
