@@ -11,6 +11,7 @@ class BillController {
     }
 
     public function index() {
+        $this->vendorModel->syncFromBills();
         $stores = $this->storeModel->allActive();
         $billCounts = $this->billModel->countByStore();
         // Index by store_id for easy lookup
@@ -22,6 +23,7 @@ class BillController {
     }
 
     public function storeView($storeId) {
+        $this->vendorModel->syncFromBills();
         $store = $this->storeModel->find($storeId);
         if (!$store) { flash('error','Store not found'); redirect('bills'); }
 

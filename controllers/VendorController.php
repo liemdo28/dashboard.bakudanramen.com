@@ -7,6 +7,7 @@ class VendorController {
     }
 
     public function index() {
+        $this->vendorModel->syncFromBills();
         $vendors = $this->vendorModel->getAll();
         // Load attachments for each vendor
         foreach ($vendors as &$v) {

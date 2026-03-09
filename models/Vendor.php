@@ -1,10 +1,44 @@
 <?php
 class Vendor {
     private $db;
-    public function __construct() { $this->db = Database::getInstance(); }
+    public function __construct() {
+        $this->db = Database::getInstance();
+        $this->ensureSchema();
+    }
 
     private function normalizedName($name) {
         return mb_strtolower(trim((string) $name));
+    }
+
+    private function ensureSchema() {
+        $this->db->execute(
+            "CREATE TABLE IF NOT EXISTS vendors (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                payment_url VARCHAR(500) NULL,
+                login_info TEXT NULL,
+                notes TEXT NULL,
+                is_active TINYINT(1) DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+
+        if ($this->db->tableExists('bills') && !$this->db->columnExists('bills', 'vendor_id')) {
+            $this->db->execute("ALTER TABLE bills ADD COLUMN vendor_id INT NULL AFTER vendor");
+        }
+
+        $this->db->execute(
+            "CREATE TABLE IF NOT EXISTS vendor_attachments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                vendor_id INT NOT NULL,
+                filename VARCHAR(255) NOT NULL,
+                original_name VARCHAR(255) NOT NULL,
+                file_size INT DEFAULT 0,
+                mime_type VARCHAR(100),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
     }
 
     private function hasVendorsTable() {
@@ -54,13 +88,19 @@ class Vendor {
         if ($existing) {
             $this->update($existing['id'], [
                 'name' => $data['name'] ?? $existing['name'],
-                'payment_url' => $data['payment_url'] ?? $existing['payment_url'],
-                'login_info' => $data['login_info'] ?? $existing['login_info'],
-                'notes' => $data['notes'] ?? $existing['notes'],
+                'payment_url' => $this->pickMergedValue($data['payment_url'] ?? null, $existing['payment_url'] ?? null),
+                'login_info' => $this->pickMergedValue($data['login_info'] ?? null, $existing['login_info'] ?? null),
+                'notes' => $this->pickMergedValue($data['notes'] ?? null, $existing['notes'] ?? null),
             ]);
             return (int) $existing['id'];
         }
         return $this->create($data);
+    }
+
+    private function pickMergedValue($incoming, $fallback) {
+        $incoming = is_string($incoming) ? trim($incoming) : $incoming;
+        if ($incoming === null || $incoming === '') return $fallback;
+        return $incoming;
     }
 
     public function update($id, $data) {
@@ -123,6 +163,7 @@ class Vendor {
 
     public function syncBillsForVendor($vendorId, $vendorName, $matchName = null) {
         if (!$this->hasVendorsTable()) return 0;
+        if (!$this->db->tableExists('bills')) return 0;
         if (!$this->db->columnExists('bills', 'vendor_id')) return 0;
 
         $normalized = $this->normalizedName($matchName ?? $vendorName);
@@ -135,5 +176,31 @@ class Vendor {
              OR (vendor_id IS NULL AND LOWER(TRIM(vendor)) = ?)",
             [$vendorName, $vendorId, $vendorId, $normalized]
         );
+    }
+
+    public function syncFromBills() {
+        if (!$this->db->tableExists('bills')) return;
+
+        $rows = $this->db->fetchAll(
+            "SELECT DISTINCT TRIM(vendor) AS vendor_name
+             FROM bills
+             WHERE vendor IS NOT NULL AND TRIM(vendor) <> ''"
+        );
+
+        foreach ($rows as $row) {
+            $name = trim($row['vendor_name'] ?? '');
+            if ($name === '') continue;
+
+            $vendorId = $this->createOrGet([
+                'name' => $name,
+                'payment_url' => null,
+                'login_info' => null,
+                'notes' => null,
+            ]);
+
+            if ($vendorId) {
+                $this->syncBillsForVendor($vendorId, $name);
+            }
+        }
     }
 }
