@@ -12,33 +12,21 @@ class Bill {
             return;
         }
 
-        if (!$this->db->columnExists('bills', 'repeat_type')) {
-            try {
-                $this->db->execute("ALTER TABLE bills ADD COLUMN repeat_type VARCHAR(20) NOT NULL DEFAULT 'none' AFTER due_date");
-                $this->db->invalidateSchemaCache('bills');
-            } catch (Exception $e) {
-            }
-        }
+        $schemaChanges = [
+            ['due_time', "ALTER TABLE bills ADD COLUMN due_time TIME NULL"],
+            ['repeat_type', "ALTER TABLE bills ADD COLUMN repeat_type VARCHAR(20) NOT NULL DEFAULT 'none'"],
+            ['repeat_interval', "ALTER TABLE bills ADD COLUMN repeat_interval INT NULL DEFAULT 1"],
+            ['repeat_day', "ALTER TABLE bills ADD COLUMN repeat_day TINYINT UNSIGNED NULL"],
+            ['repeat_parent_id', "ALTER TABLE bills ADD COLUMN repeat_parent_id INT NULL"],
+        ];
 
-        if (!$this->db->columnExists('bills', 'repeat_interval')) {
-            try {
-                $this->db->execute("ALTER TABLE bills ADD COLUMN repeat_interval INT NULL DEFAULT 1 AFTER repeat_type");
-                $this->db->invalidateSchemaCache('bills');
-            } catch (Exception $e) {
+        foreach ($schemaChanges as [$column, $sql]) {
+            if ($this->db->columnExists('bills', $column)) {
+                continue;
             }
-        }
 
-        if (!$this->db->columnExists('bills', 'repeat_day')) {
             try {
-                $this->db->execute("ALTER TABLE bills ADD COLUMN repeat_day TINYINT UNSIGNED NULL AFTER repeat_interval");
-                $this->db->invalidateSchemaCache('bills');
-            } catch (Exception $e) {
-            }
-        }
-
-        if (!$this->db->columnExists('bills', 'repeat_parent_id')) {
-            try {
-                $this->db->execute("ALTER TABLE bills ADD COLUMN repeat_parent_id INT NULL AFTER repeat_day");
+                $this->db->execute($sql);
                 $this->db->invalidateSchemaCache('bills');
             } catch (Exception $e) {
             }
@@ -57,6 +45,10 @@ class Bill {
         return $this->db->columnExists('bills', 'paid_at');
     }
 
+    private function hasDueTimeColumn() {
+        return $this->db->columnExists('bills', 'due_time');
+    }
+
     private function supportsRepeat() {
         return $this->db->columnExists('bills', 'repeat_type')
             && $this->db->columnExists('bills', 'repeat_interval')
@@ -64,52 +56,239 @@ class Bill {
             && $this->db->columnExists('bills', 'repeat_parent_id');
     }
 
-    private function normalizeRepeatData($data, $fallbackDueDate = null) {
+    private function normalizeDueTime($value) {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{2}:\d{2}$/', $value)) {
+            return $value . ':00';
+        }
+
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $value)) {
+            return $value;
+        }
+
+        return null;
+    }
+
+    private function clampRepeatInterval($type, $value) {
+        $limits = [
+            'hourly' => 24,
+            'daily' => 30,
+            'weekly' => 12,
+            'monthly' => 12,
+            'yearly' => 10,
+        ];
+
+        $max = $limits[$type] ?? 12;
+        return max(1, min($max, (int) $value));
+    }
+
+    private function normalizeRepeatData($data, $referenceBill = null) {
+        $allowedTypes = ['none', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'];
         $type = strtolower(trim((string) ($data['repeat_type'] ?? 'none')));
-        if ($type !== 'monthly') {
+        if (!in_array($type, $allowedTypes, true)) {
+            $type = 'none';
+        }
+
+        $dueDate = $data['due_date'] ?? ($referenceBill['due_date'] ?? null);
+        $dueTs = $dueDate ? strtotime($dueDate) : false;
+        $hourAnchor = (int) ($data['repeat_anchor'] ?? ($referenceBill['repeat_day'] ?? 0));
+        $existingDueTime = $referenceBill['due_time'] ?? null;
+        $dueTime = $this->normalizeDueTime($data['due_time'] ?? $existingDueTime);
+
+        if ($type === 'none') {
             return [
                 'repeat_type' => 'none',
                 'repeat_interval' => 1,
                 'repeat_day' => null,
+                'due_time' => null,
             ];
         }
 
-        $interval = max(1, (int) ($data['repeat_interval'] ?? 1));
-        $dueDate = $data['due_date'] ?? $fallbackDueDate;
-        $defaultDay = $dueDate ? (int) date('j', strtotime($dueDate)) : 1;
-        $day = (int) ($data['repeat_day'] ?? $defaultDay);
-        $day = max(1, min(31, $day));
+        $interval = $this->clampRepeatInterval($type, $data['repeat_interval'] ?? ($referenceBill['repeat_interval'] ?? 1));
+        $repeatDay = null;
+
+        switch ($type) {
+            case 'hourly':
+                $hourAnchor = max(0, min(23, $hourAnchor));
+                $repeatDay = $hourAnchor;
+                $dueTime = sprintf('%02d:00:00', $hourAnchor);
+                break;
+            case 'weekly':
+                $repeatDay = $dueTs ? (int) date('N', $dueTs) : ((int) ($referenceBill['repeat_day'] ?? 1) ?: 1);
+                $dueTime = null;
+                break;
+            case 'monthly':
+                $repeatDay = $dueTs ? (int) date('j', $dueTs) : ((int) ($referenceBill['repeat_day'] ?? 1) ?: 1);
+                $dueTime = null;
+                break;
+            case 'daily':
+            case 'yearly':
+                $repeatDay = null;
+                $dueTime = null;
+                break;
+        }
 
         return [
-            'repeat_type' => 'monthly',
+            'repeat_type' => $type,
             'repeat_interval' => $interval,
-            'repeat_day' => $day,
+            'repeat_day' => $repeatDay,
+            'due_time' => $type === 'hourly' ? $dueTime : $this->normalizeDueTime($dueTime),
         ];
     }
 
-    private function buildRecurringDateForMonth($sourceBill, $month, $year) {
-        $sourceTs = strtotime($sourceBill['due_date']);
-        if (!$sourceTs) {
-            return null;
-        }
+    private function sourceDateTime($bill) {
+        $date = $bill['due_date'] ?? date('Y-m-d');
+        $time = $this->normalizeDueTime($bill['due_time'] ?? null) ?: '00:00:00';
+        return new DateTimeImmutable($date . ' ' . $time);
+    }
 
-        $sourceMonth = (int) date('n', $sourceTs);
-        $sourceYear = (int) date('Y', $sourceTs);
-        $monthsDiff = (($year - $sourceYear) * 12) + ($month - $sourceMonth);
-        if ($monthsDiff < 0) {
-            return null;
-        }
-
+    private function occurrenceDateTimeByIndex($sourceBill, $index) {
+        $source = $this->sourceDateTime($sourceBill);
+        $type = $sourceBill['repeat_type'] ?? 'none';
         $interval = max(1, (int) ($sourceBill['repeat_interval'] ?? 1));
-        if ($monthsDiff % $interval !== 0) {
-            return null;
+        $steps = $index * $interval;
+
+        switch ($type) {
+            case 'hourly':
+                return $source->modify('+' . $steps . ' hours');
+            case 'daily':
+                return $source->modify('+' . $steps . ' days');
+            case 'weekly':
+                return $source->modify('+' . ($steps * 7) . ' days');
+            case 'monthly':
+                $year = (int) $source->format('Y');
+                $month = (int) $source->format('n') + $steps;
+                $targetYear = $year + (int) floor(($month - 1) / 12);
+                $targetMonth = (($month - 1) % 12) + 1;
+                $day = (int) ($sourceBill['repeat_day'] ?? $source->format('j'));
+                $lastDay = cal_days_in_month(CAL_GREGORIAN, $targetMonth, $targetYear);
+                $safeDay = min($day, $lastDay);
+                return new DateTimeImmutable(sprintf(
+                    '%04d-%02d-%02d %s',
+                    $targetYear,
+                    $targetMonth,
+                    $safeDay,
+                    $source->format('H:i:s')
+                ));
+            case 'yearly':
+                $targetYear = (int) $source->format('Y') + $steps;
+                $targetMonth = (int) $source->format('n');
+                $targetDay = (int) $source->format('j');
+                $lastDay = cal_days_in_month(CAL_GREGORIAN, $targetMonth, $targetYear);
+                $safeDay = min($targetDay, $lastDay);
+                return new DateTimeImmutable(sprintf(
+                    '%04d-%02d-%02d %s',
+                    $targetYear,
+                    $targetMonth,
+                    $safeDay,
+                    $source->format('H:i:s')
+                ));
+            default:
+                return $source;
+        }
+    }
+
+    private function firstOccurrenceIndexForMonth($sourceBill, DateTimeImmutable $monthStart) {
+        $source = $this->sourceDateTime($sourceBill);
+        if ($source >= $monthStart) {
+            return 0;
         }
 
-        $day = (int) ($sourceBill['repeat_day'] ?? date('j', $sourceTs));
-        $day = max(1, min(31, $day));
-        $lastDay = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $type = $sourceBill['repeat_type'] ?? 'none';
+        $interval = max(1, (int) ($sourceBill['repeat_interval'] ?? 1));
 
-        return sprintf('%04d-%02d-%02d', $year, $month, min($day, $lastDay));
+        switch ($type) {
+            case 'hourly':
+                $stepSeconds = $interval * 3600;
+                $diffSeconds = max(0, $monthStart->getTimestamp() - $source->getTimestamp());
+                return (int) floor($diffSeconds / $stepSeconds);
+            case 'daily':
+                $stepDays = $interval;
+                $diffDays = max(0, (int) floor(($monthStart->getTimestamp() - $source->getTimestamp()) / 86400));
+                return (int) floor($diffDays / $stepDays);
+            case 'weekly':
+                $stepDays = $interval * 7;
+                $diffDays = max(0, (int) floor(($monthStart->getTimestamp() - $source->getTimestamp()) / 86400));
+                return (int) floor($diffDays / $stepDays);
+            case 'monthly':
+                $monthsDiff = (((int) $monthStart->format('Y') - (int) $source->format('Y')) * 12)
+                    + ((int) $monthStart->format('n') - (int) $source->format('n'));
+                return max(0, (int) floor($monthsDiff / $interval));
+            case 'yearly':
+                $yearsDiff = (int) $monthStart->format('Y') - (int) $source->format('Y');
+                return max(0, (int) floor($yearsDiff / $interval));
+            default:
+                return 0;
+        }
+    }
+
+    private function occurrencesForMonth($sourceBill, $month, $year) {
+        if (($sourceBill['repeat_type'] ?? 'none') === 'none') {
+            return [];
+        }
+
+        $monthStart = new DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $year, $month));
+        $monthEnd = $monthStart->modify('+1 month');
+        $index = $this->firstOccurrenceIndexForMonth($sourceBill, $monthStart);
+        $occurrences = [];
+        $guard = 0;
+
+        while ($guard < 1200) {
+            $occurrence = $this->occurrenceDateTimeByIndex($sourceBill, $index);
+            if ($occurrence >= $monthEnd) {
+                break;
+            }
+
+            if ($occurrence < $monthStart) {
+                $index++;
+                $guard++;
+                continue;
+            }
+
+            $occurrences[] = $occurrence;
+            $index++;
+            $guard++;
+        }
+
+        return $occurrences;
+    }
+
+    private function sameOccurrence(DateTimeImmutable $occurrence, $bill) {
+        $billTime = $this->normalizeDueTime($bill['due_time'] ?? null) ?: '00:00:00';
+        return $occurrence->format('Y-m-d') === ($bill['due_date'] ?? '')
+            && $occurrence->format('H:i:s') === $billTime;
+    }
+
+    private function occurrenceExists($storeId, $sourceId, DateTimeImmutable $occurrence) {
+        $date = $occurrence->format('Y-m-d');
+        $time = $this->hasDueTimeColumn() ? $occurrence->format('H:i:s') : null;
+
+        if ($this->hasDueTimeColumn()) {
+            return (bool) $this->db->fetch(
+                "SELECT id
+                 FROM bills
+                 WHERE store_id = ?
+                 AND ((repeat_parent_id = ?) OR (id = ?))
+                 AND due_date = ?
+                 AND (due_time <=> ?)
+                 LIMIT 1",
+                [$storeId, $sourceId, $sourceId, $date, $time]
+            );
+        }
+
+        return (bool) $this->db->fetch(
+            "SELECT id
+             FROM bills
+             WHERE store_id = ?
+             AND ((repeat_parent_id = ?) OR (id = ?))
+             AND due_date = ?
+             LIMIT 1",
+            [$storeId, $sourceId, $sourceId, $date]
+        );
     }
 
     private function deleteSingle($id) {
@@ -140,6 +319,8 @@ class Bill {
             $vendorFields = "v.name AS vendor_name, v.payment_url AS vendor_payment_url";
         }
 
+        $timeOrder = $this->hasDueTimeColumn() ? ", COALESCE(b.due_time, '23:59:59') ASC" : '';
+
         return $this->db->fetchAll(
             "SELECT b.*, s.name AS store_name, s.color AS store_color,
                     $vendorFields
@@ -147,7 +328,7 @@ class Bill {
              JOIN stores s ON s.id = b.store_id
              $vendorJoin
              $where
-             ORDER BY b.due_date ASC, FIELD(b.status,'overdue','pending','paid') ASC, b.title ASC",
+             ORDER BY b.due_date ASC{$timeOrder}, FIELD(b.status,'overdue','pending','paid') ASC, b.title ASC",
             $params
         );
     }
@@ -163,7 +344,7 @@ class Bill {
     }
 
     public function create($data) {
-        $repeat = $this->normalizeRepeatData($data, $data['due_date'] ?? null);
+        $repeat = $this->normalizeRepeatData($data);
 
         $fields = [
             'store_id',
@@ -196,6 +377,12 @@ class Bill {
             array_splice($params, 3, 0, [$data['vendor_id'] ?? null]);
         }
 
+        if ($this->hasDueTimeColumn()) {
+            $fields[] = 'due_time';
+            $placeholders[] = '?';
+            $params[] = $repeat['due_time'];
+        }
+
         if ($this->supportsRepeat()) {
             $fields[] = 'repeat_type';
             $fields[] = 'repeat_interval';
@@ -219,6 +406,9 @@ class Bill {
     }
 
     public function update($id, $data) {
+        $current = $this->find($id);
+        $repeat = $this->normalizeRepeatData($data, $current);
+
         $fields = [
             'title = ?',
             'vendor = ?',
@@ -244,8 +434,12 @@ class Bill {
             array_splice($params, 2, 0, [$data['vendor_id'] ?? null]);
         }
 
+        if ($this->hasDueTimeColumn()) {
+            $fields[] = 'due_time = ?';
+            $params[] = $repeat['due_time'];
+        }
+
         if ($this->supportsRepeat()) {
-            $repeat = $this->normalizeRepeatData($data, $data['due_date'] ?? null);
             $fields[] = 'repeat_type = ?';
             $fields[] = 'repeat_interval = ?';
             $fields[] = 'repeat_day = ?';
@@ -277,19 +471,48 @@ class Bill {
             return 0;
         }
 
-        $repeat = $this->normalizeRepeatData($data, $bill['due_date'] ?? null);
+        $repeat = $this->normalizeRepeatData(array_merge($bill, $data), $bill);
+        $params = [
+            $repeat['repeat_type'],
+            $repeat['repeat_interval'],
+            $repeat['repeat_day'],
+        ];
+        $fields = [
+            'repeat_type = ?',
+            'repeat_interval = ?',
+            'repeat_day = ?',
+        ];
+
+        if ($this->hasDueTimeColumn()) {
+            $fields[] = 'due_time = ?';
+            $params[] = $repeat['due_time'];
+        }
+
+        $params[] = $id;
         $updated = $this->db->execute(
-            "UPDATE bills
-             SET repeat_type = ?, repeat_interval = ?, repeat_day = ?, updated_at = NOW()
-             WHERE id = ?",
-            [$repeat['repeat_type'], $repeat['repeat_interval'], $repeat['repeat_day'], $id]
+            "UPDATE bills SET " . implode(', ', $fields) . ", updated_at = NOW() WHERE id = ?",
+            $params
         );
 
+        $childParams = [
+            $repeat['repeat_type'],
+            $repeat['repeat_interval'],
+            $repeat['repeat_day'],
+        ];
+        $childFields = [
+            'repeat_type = ?',
+            'repeat_interval = ?',
+            'repeat_day = ?',
+        ];
+        if ($this->hasDueTimeColumn()) {
+            $childFields[] = 'due_time = ?';
+            $childParams[] = $repeat['due_time'];
+        }
+        $childParams[] = $id;
+
         $this->db->execute(
-            "UPDATE bills
-             SET repeat_type = ?, repeat_interval = ?, repeat_day = ?, updated_at = NOW()
-             WHERE repeat_parent_id = ?",
-            [$repeat['repeat_type'], $repeat['repeat_interval'], $repeat['repeat_day'], $id]
+            "UPDATE bills SET " . implode(', ', $childFields) . ", updated_at = NOW() WHERE repeat_parent_id = ?",
+            $childParams
         );
 
         return $updated;
@@ -306,54 +529,40 @@ class Bill {
              FROM bills
              WHERE store_id = ?
              AND repeat_parent_id IS NULL
-             AND repeat_type = 'monthly'
+             AND repeat_type <> 'none'
              AND due_date <= ?",
             [$storeId, $targetEnd]
         );
 
         $created = 0;
         foreach ($sources as $source) {
-            $targetDate = $this->buildRecurringDateForMonth($source, $month, $year);
-            if (!$targetDate) {
-                continue;
+            foreach ($this->occurrencesForMonth($source, $month, $year) as $occurrence) {
+                if ($this->sameOccurrence($occurrence, $source)) {
+                    continue;
+                }
+
+                if ($this->occurrenceExists($storeId, $source['id'], $occurrence)) {
+                    continue;
+                }
+
+                $this->create([
+                    'store_id' => $source['store_id'],
+                    'title' => $source['title'],
+                    'vendor' => $source['vendor'] ?? null,
+                    'vendor_id' => $source['vendor_id'] ?? null,
+                    'amount' => $source['amount'] ?? null,
+                    'due_date' => $occurrence->format('Y-m-d'),
+                    'due_time' => $occurrence->format('H:i:s'),
+                    'status' => 'pending',
+                    'note' => $source['note'] ?? null,
+                    'color' => $source['color'] ?? null,
+                    'repeat_type' => $source['repeat_type'] ?? 'none',
+                    'repeat_interval' => $source['repeat_interval'] ?? 1,
+                    'repeat_anchor' => $source['repeat_day'] ?? null,
+                    'repeat_parent_id' => $source['id'],
+                ]);
+                $created++;
             }
-
-            if (date('Y-m', strtotime($targetDate)) === date('Y-m', strtotime($source['due_date']))) {
-                continue;
-            }
-
-            $exists = $this->db->fetch(
-                "SELECT id
-                 FROM bills
-                 WHERE store_id = ?
-                 AND (
-                    (repeat_parent_id = ? AND YEAR(due_date) = ? AND MONTH(due_date) = ?)
-                    OR (id = ? AND YEAR(due_date) = ? AND MONTH(due_date) = ?)
-                 )
-                 LIMIT 1",
-                [$storeId, $source['id'], $year, $month, $source['id'], $year, $month]
-            );
-
-            if ($exists) {
-                continue;
-            }
-
-            $this->create([
-                'store_id' => $source['store_id'],
-                'title' => $source['title'],
-                'vendor' => $source['vendor'] ?? null,
-                'vendor_id' => $source['vendor_id'] ?? null,
-                'amount' => $source['amount'] ?? null,
-                'due_date' => $targetDate,
-                'status' => 'pending',
-                'note' => $source['note'] ?? null,
-                'color' => $source['color'] ?? null,
-                'repeat_type' => $source['repeat_type'] ?? 'monthly',
-                'repeat_interval' => $source['repeat_interval'] ?? 1,
-                'repeat_day' => $source['repeat_day'] ?? date('j', strtotime($targetDate)),
-                'repeat_parent_id' => $source['id'],
-            ]);
-            $created++;
         }
 
         return $created;
@@ -399,12 +608,13 @@ class Bill {
             'vendor_id' => $bill['vendor_id'] ?? null,
             'amount' => $bill['amount'] ?? null,
             'due_date' => $targetDate,
+            'due_time' => $bill['due_time'] ?? null,
             'status' => 'pending',
             'note' => $bill['note'] ?? null,
             'color' => $bill['color'] ?? null,
             'repeat_type' => 'none',
             'repeat_interval' => 1,
-            'repeat_day' => null,
+            'repeat_anchor' => null,
             'repeat_parent_id' => null,
         ]);
     }

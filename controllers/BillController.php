@@ -135,7 +135,7 @@ class BillController {
             'color' => trim($_POST['color'] ?? ''),
             'repeat_type' => $repeat['repeat_type'],
             'repeat_interval' => $repeat['repeat_interval'],
-            'repeat_day' => $repeat['repeat_day'],
+            'repeat_anchor' => $repeat['repeat_anchor'],
         ]);
 
         // Handle file upload if present
@@ -195,7 +195,7 @@ class BillController {
             'color' => trim($_POST['color'] ?? ''),
             'repeat_type' => $repeat['repeat_type'],
             'repeat_interval' => $repeat['repeat_interval'],
-            'repeat_day' => $repeat['repeat_day'],
+            'repeat_anchor' => $repeat['repeat_anchor'],
             'repeat_parent_id' => $bill['repeat_parent_id'] ?? null,
         ]);
 
@@ -331,22 +331,36 @@ class BillController {
 
     private function extractRepeatSettings($payload, $dueDate) {
         $type = strtolower(trim((string)($payload['repeat_type'] ?? 'none')));
-        if ($type !== 'monthly') {
+        $allowedTypes = ['none', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'];
+        if (!in_array($type, $allowedTypes, true) || $type === 'none') {
             return [
                 'repeat_type' => 'none',
                 'repeat_interval' => 1,
-                'repeat_day' => null,
+                'repeat_anchor' => null,
             ];
         }
 
-        $interval = max(1, (int)($payload['repeat_interval'] ?? 1));
-        $defaultDay = $dueDate ? (int)date('j', strtotime($dueDate)) : 1;
-        $day = max(1, min(31, (int)($payload['repeat_day'] ?? $defaultDay)));
+        $limits = [
+            'hourly' => 24,
+            'daily' => 30,
+            'weekly' => 12,
+            'monthly' => 12,
+            'yearly' => 10,
+        ];
+
+        $interval = max(1, min($limits[$type] ?? 12, (int)($payload['repeat_interval'] ?? 1)));
+        $defaultAnchor = $dueDate ? (int)date('G', strtotime($dueDate . ' 00:00:00')) : 0;
+        $anchor = (int)($payload['repeat_anchor'] ?? $defaultAnchor);
+        if ($type === 'hourly') {
+            $anchor = max(0, min(23, $anchor));
+        } else {
+            $anchor = $anchor > 0 ? $anchor : null;
+        }
 
         return [
-            'repeat_type' => 'monthly',
+            'repeat_type' => $type,
             'repeat_interval' => $interval,
-            'repeat_day' => $day,
+            'repeat_anchor' => $anchor,
         ];
     }
 }

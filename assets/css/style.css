@@ -1406,23 +1406,23 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .repeat-controls{
     display:grid;
-    grid-template-columns:180px 1fr;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
     gap:10px;
     align-items:center;
 }
-.repeat-frequency-row{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    flex-wrap:wrap;
+.repeat-controls-inline .form-control{
+    margin:0;
 }
-.repeat-inline-label{
+.repeat-type-select{
+    min-width:140px;
+}
+.repeat-anchor-select.repeat-anchor-readonly{
+    opacity:.9;
     color:var(--text-muted);
-    font-size:13px;
-    white-space:nowrap;
+    background:rgba(255,255,255,.04);
+    cursor:default;
 }
 .repeat-number{
-    width:90px;
     min-width:90px;
 }
 .repeat-hint{
@@ -1430,7 +1430,6 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     font-size:12px;
     margin-top:10px;
 }
-.repeat-hidden{display:none}
 
 /* Calendar for bills */
 .calendar-wrap{padding:12px}

@@ -30,6 +30,11 @@ function fmtAmount($amt) {
     return number_format((float)$amt, 0, ',', '.');
 }
 
+function fmtDueTime($time) {
+    if (!$time) return '';
+    return substr((string)$time, 0, 5);
+}
+
 ob_start();
 ?>
 <div class="flex-between mb-3">
@@ -104,7 +109,7 @@ ob_start();
                 <div class="grid grid-2" style="gap:10px">
                     <div class="form-group">
                         <label>Due date *</label>
-                        <input class="form-control" type="date" name="due_date" id="due-date-create" required value="<?= e($today) ?>" onchange="syncRepeatDayFromDue('create')">
+                        <input class="form-control" type="date" name="due_date" id="due-date-create" required value="<?= e($today) ?>">
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
@@ -115,19 +120,19 @@ ob_start();
                 <div class="form-group">
                     <label>Repeat</label>
                     <div class="repeat-builder">
-                        <div class="repeat-controls">
-                            <select class="form-control" name="repeat_type" id="repeat-type-create" onchange="toggleRepeatFields('create', true)">
+                        <div class="repeat-controls repeat-controls-inline">
+                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-create" onchange="renderRepeatControls('create')">
                                 <option value="none">Không lặp</option>
+                                <option value="hourly">Giờ</option>
+                                <option value="daily">Ngày</option>
+                                <option value="weekly">Tuần</option>
                                 <option value="monthly">Tháng</option>
+                                <option value="yearly">Năm</option>
                             </select>
-                            <div class="repeat-frequency-row repeat-hidden" id="repeat-config-create">
-                                <span class="repeat-inline-label">Mỗi</span>
-                                <input class="form-control repeat-number" type="number" min="1" max="24" name="repeat_interval" id="repeat-interval-create" value="1">
-                                <span class="repeat-inline-label">tháng, ngày</span>
-                                <input class="form-control repeat-number" type="number" min="1" max="31" name="repeat_day" id="repeat-day-create" value="<?= (int)date('j', strtotime($today)) ?>">
-                            </div>
+                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-create" onchange="renderRepeatControls('create')"></select>
+                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-create"></select>
                         </div>
-                        <div class="repeat-hint">Ví dụ: Tháng → 1 → ngày 8 sẽ tự lặp vào ngày 8 mỗi tháng.</div>
+                        <div class="repeat-hint" id="repeat-hint-create"></div>
                     </div>
                 </div>
 
@@ -205,8 +210,12 @@ ob_start();
                                 <div class="bill-title"><?= e($b['title']) ?></div>
                                 <div class="text-muted text-sm">
                                     <?= e($b['vendor'] ?? '') ?>
-                                    <?php if (!empty($b['amount']) && $b['amount'] > 0): ?>
+                                    <?php if (!empty($b['due_time'])): ?>
                                         <?php if (!empty($b['vendor'])): ?> · <?php endif; ?>
+                                        <span style="color:var(--neon-cyan);font-weight:700"><?= e(fmtDueTime($b['due_time'])) ?></span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($b['amount']) && $b['amount'] > 0): ?>
+                                        <?php if (!empty($b['vendor']) || !empty($b['due_time'])): ?> · <?php endif; ?>
                                         <span style="color:var(--neon-yellow);font-weight:700"><?= fmtAmount($b['amount']) ?></span>
                                     <?php endif; ?>
                                 </div>
@@ -217,6 +226,9 @@ ob_start();
                                 <span class="text-muted text-sm" title="<?= count($b['attachments']) ?> file(s)">📎<?= count($b['attachments']) ?></span>
                             <?php endif; ?>
                             <span class="chip" style="border-color:<?= e($urgencyColor) ?>40;color:<?= e($urgencyColor) ?>"><?= e(date('d/m', strtotime($b['due_date']))) ?></span>
+                            <?php if (!empty($b['due_time'])): ?>
+                                <span class="chip chip-info"><?= e(fmtDueTime($b['due_time'])) ?></span>
+                            <?php endif; ?>
                             <button type="button" class="btn btn-outline btn-sm bill-edit-action" data-bill-trigger="<?= (int)$b['id'] ?>">Edit</button>
                             <?php if ($b['status'] === 'paid'): ?>
                                 <span class="pill pill-ok">Paid</span>
@@ -275,9 +287,10 @@ ob_start();
                             echo '<div class="cal-items">';
                             foreach (array_slice($dayBills, 0, 4) as $b) {
                                 $urgColor = dueColor($b['due_date'], $b['status']);
+                                $timeLabel = !empty($b['due_time']) ? ' · '.fmtDueTime($b['due_time']) : '';
                                 $amtLabel = (!empty($b['amount']) && $b['amount'] > 0) ? ' · '.fmtAmount($b['amount']) : '';
                                 echo '<button type="button" class="cal-item cal-item-button" data-bill-trigger="'.(int)$b['id'].'" style="border-left-color:'.e($urgColor).';background:'.e($urgColor).'15">';
-                                echo '<span class="cal-item-title">'.e($b['title']).$amtLabel.'</span>';
+                                echo '<span class="cal-item-title">'.e($b['title']).$timeLabel.$amtLabel.'</span>';
                                 echo '</button>';
                             }
                             if (count($dayBills) > 4) echo '<div class="text-muted text-sm" style="margin-top:6px">+'.(count($dayBills)-4).' more</div>';
@@ -311,7 +324,7 @@ ob_start();
                 <div class="grid grid-2" style="gap:10px">
                     <div class="form-group">
                         <label>Due date *</label>
-                        <input class="form-control" type="date" name="due_date" id="edit-due_date" required onchange="syncRepeatDayFromDue('edit')">
+                        <input class="form-control" type="date" name="due_date" id="edit-due_date" required>
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
@@ -322,19 +335,19 @@ ob_start();
                 <div class="form-group">
                     <label>Repeat</label>
                     <div class="repeat-builder">
-                        <div class="repeat-controls">
-                            <select class="form-control" name="repeat_type" id="repeat-type-edit" onchange="toggleRepeatFields('edit', true)">
+                        <div class="repeat-controls repeat-controls-inline">
+                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-edit" onchange="renderRepeatControls('edit')">
                                 <option value="none">Không lặp</option>
+                                <option value="hourly">Giờ</option>
+                                <option value="daily">Ngày</option>
+                                <option value="weekly">Tuần</option>
                                 <option value="monthly">Tháng</option>
+                                <option value="yearly">Năm</option>
                             </select>
-                            <div class="repeat-frequency-row repeat-hidden" id="repeat-config-edit">
-                                <span class="repeat-inline-label">Mỗi</span>
-                                <input class="form-control repeat-number" type="number" min="1" max="24" name="repeat_interval" id="repeat-interval-edit" value="1">
-                                <span class="repeat-inline-label">tháng, ngày</span>
-                                <input class="form-control repeat-number" type="number" min="1" max="31" name="repeat_day" id="repeat-day-edit" value="1">
-                            </div>
+                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-edit" onchange="renderRepeatControls('edit')"></select>
+                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-edit"></select>
                         </div>
-                        <div class="repeat-hint">Bật Repeat để hệ thống tự sinh bill cho các tháng sau.</div>
+                        <div class="repeat-hint" id="repeat-hint-edit"></div>
                     </div>
                 </div>
 
@@ -413,12 +426,11 @@ function openEditModal(billId) {
     document.getElementById('edit-delete-btn').href = '<?= APP_URL ?>/bills/' + billId + '/delete';
     document.getElementById('edit-duplicate-btn').href = '<?= APP_URL ?>/bills/' + billId + '/duplicate';
 
-    const repeatType = bill.repeat_type || 'none';
-    document.getElementById('repeat-type-edit').value = repeatType;
-    document.getElementById('repeat-interval-edit').value = bill.repeat_interval || 1;
-    document.getElementById('repeat-day-edit').value = bill.repeat_day || ((bill.due_date || '').split('-')[2] || 1);
-    document.getElementById('repeat-day-edit').dataset.manual = '0';
-    toggleRepeatFields('edit', true);
+    setRepeatState('edit', {
+        type: bill.repeat_type || 'none',
+        interval: bill.repeat_interval || 1,
+        anchor: bill.repeat_day ?? null
+    });
 
     // Set status
     const statusSelect = document.getElementById('edit-status');
@@ -488,31 +500,128 @@ function toggleNewVendor(context) {
     }
 }
 
-function toggleRepeatFields(context, forceSyncDay = false) {
-    const typeSelect = document.getElementById('repeat-type-' + context);
-    const config = document.getElementById('repeat-config-' + context);
-    if (!typeSelect || !config) return;
+const repeatConfigMap = {
+    none: { max: 1, hint: () => 'Tắt repeat để bill chỉ xuất hiện 1 lần.' },
+    hourly: { max: 24, hint: (_, interval, anchorLabel) => `Lặp mỗi ${interval} giờ, neo tại ${anchorLabel}.` },
+    daily: { max: 30, hint: (dueDate, interval) => `Lặp mỗi ${interval} ngày kể từ ${formatRepeatDate(dueDate)}.` },
+    weekly: { max: 12, hint: (dueDate, interval) => `Lặp mỗi ${interval} tuần vào ${formatRepeatWeekday(dueDate)}.` },
+    monthly: { max: 12, hint: (dueDate, interval) => `Lặp mỗi ${interval} tháng, vào ngày ${formatRepeatDay(dueDate)}.` },
+    yearly: { max: 10, hint: (dueDate, interval) => `Lặp mỗi ${interval} năm, vào ${formatRepeatMonthDay(dueDate)}.` }
+};
 
-    const isMonthly = typeSelect.value === 'monthly';
-    config.classList.toggle('repeat-hidden', !isMonthly);
-    if (isMonthly) {
-        syncRepeatDayFromDue(context, forceSyncDay);
-    }
+function repeatDueInputId(context) {
+    return context === 'edit' ? 'edit-due_date' : 'due-date-create';
 }
 
-function syncRepeatDayFromDue(context, force = false) {
-    const dueInput = document.getElementById(context === 'edit' ? 'edit-due_date' : 'due-date-create');
-    const repeatDayInput = document.getElementById('repeat-day-' + context);
-    const repeatTypeSelect = document.getElementById('repeat-type-' + context);
-    if (!dueInput || !repeatDayInput || !repeatTypeSelect || repeatTypeSelect.value !== 'monthly') return;
+function formatRepeatDay(dueDate) {
+    if (!dueDate || !dueDate.includes('-')) return '--';
+    return parseInt(dueDate.split('-')[2], 10) || '--';
+}
 
-    const dueDate = dueInput.value || '';
-    if (!dueDate.includes('-')) return;
+function formatRepeatWeekday(dueDate) {
+    if (!dueDate) return 'đúng weekday của due date';
+    const date = new Date(dueDate + 'T00:00:00');
+    const days = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+    return days[date.getDay()] || 'đúng weekday của due date';
+}
 
-    const day = parseInt(dueDate.split('-')[2], 10) || 1;
-    if (force || repeatDayInput.dataset.manual !== '1' || !repeatDayInput.value) {
-        repeatDayInput.value = day;
+function formatRepeatMonthDay(dueDate) {
+    if (!dueDate || !dueDate.includes('-')) return 'due date gốc';
+    const [year, month, day] = dueDate.split('-').map(Number);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[(month || 1) - 1]} ${day || 1}`;
+}
+
+function formatRepeatDate(dueDate) {
+    if (!dueDate || !dueDate.includes('-')) return 'due date gốc';
+    const [year, month, day] = dueDate.split('-').map(Number);
+    return `${String(day || 1).padStart(2, '0')}/${String(month || 1).padStart(2, '0')}/${year || ''}`;
+}
+
+function repeatHourLabel(hourValue) {
+    const hour = Math.max(0, Math.min(23, parseInt(hourValue, 10) || 0));
+    return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function fillRepeatIntervalOptions(context, type, selectedValue) {
+    const intervalSelect = document.getElementById('repeat-interval-' + context);
+    if (!intervalSelect) return;
+
+    const config = repeatConfigMap[type] || repeatConfigMap.none;
+    const max = config.max || 1;
+    intervalSelect.innerHTML = '';
+    for (let i = 1; i <= max; i++) {
+        const option = document.createElement('option');
+        option.value = String(i);
+        option.textContent = String(i);
+        intervalSelect.appendChild(option);
     }
+    intervalSelect.value = String(Math.max(1, Math.min(max, parseInt(selectedValue, 10) || 1)));
+    intervalSelect.disabled = type === 'none';
+}
+
+function fillRepeatAnchorOptions(context, type, selectedValue) {
+    const anchorSelect = document.getElementById('repeat-anchor-' + context);
+    const dueInput = document.getElementById(repeatDueInputId(context));
+    if (!anchorSelect || !dueInput) return;
+
+    anchorSelect.innerHTML = '';
+    anchorSelect.disabled = type !== 'hourly';
+    anchorSelect.classList.toggle('repeat-anchor-readonly', type !== 'hourly');
+
+    if (type === 'hourly') {
+        for (let hour = 0; hour < 24; hour++) {
+            const option = document.createElement('option');
+            option.value = String(hour);
+            option.textContent = repeatHourLabel(hour);
+            anchorSelect.appendChild(option);
+        }
+        anchorSelect.value = String(Math.max(0, Math.min(23, parseInt(selectedValue, 10) || 7)));
+        return;
+    }
+
+    const option = document.createElement('option');
+    option.value = '';
+    if (type === 'daily') option.textContent = 'Theo due date';
+    if (type === 'weekly') option.textContent = formatRepeatWeekday(dueInput.value);
+    if (type === 'monthly') option.textContent = 'Ngày ' + formatRepeatDay(dueInput.value);
+    if (type === 'yearly') option.textContent = formatRepeatMonthDay(dueInput.value);
+    if (type === 'none') option.textContent = 'Không lặp';
+    anchorSelect.appendChild(option);
+    anchorSelect.value = '';
+}
+
+function renderRepeatControls(context) {
+    const typeSelect = document.getElementById('repeat-type-' + context);
+    const hint = document.getElementById('repeat-hint-' + context);
+    if (!typeSelect || !hint) return;
+
+    const type = typeSelect.value || 'none';
+    const intervalSelect = document.getElementById('repeat-interval-' + context);
+    const anchorSelect = document.getElementById('repeat-anchor-' + context);
+    const dueInput = document.getElementById(repeatDueInputId(context));
+
+    fillRepeatIntervalOptions(context, type, intervalSelect ? intervalSelect.value : 1);
+    fillRepeatAnchorOptions(context, type, anchorSelect ? anchorSelect.value : null);
+
+    const intervalEl = document.getElementById('repeat-interval-' + context);
+    const anchorEl = document.getElementById('repeat-anchor-' + context);
+    const intervalValue = intervalEl ? intervalEl.value : '1';
+    const anchorValue = anchorEl ? anchorEl.value : '';
+    const anchorLabel = type === 'hourly' ? repeatHourLabel(anchorValue) : '';
+    hint.textContent = repeatConfigMap[type].hint(dueInput ? dueInput.value : '', intervalValue, anchorLabel);
+}
+
+function setRepeatState(context, state) {
+    const typeSelect = document.getElementById('repeat-type-' + context);
+    const intervalSelect = document.getElementById('repeat-interval-' + context);
+    const anchorSelect = document.getElementById('repeat-anchor-' + context);
+    if (!typeSelect || !intervalSelect || !anchorSelect) return;
+
+    typeSelect.value = state.type || 'none';
+    fillRepeatIntervalOptions(context, typeSelect.value, state.interval || 1);
+    fillRepeatAnchorOptions(context, typeSelect.value, state.anchor);
+    renderRepeatControls(context);
 }
 
 function rgbToHex(rgb) {
@@ -551,21 +660,18 @@ document.addEventListener('keydown', e => {
     openEditModal(trigger.getAttribute('data-bill-trigger'));
 });
 
-const repeatDayCreate = document.getElementById('repeat-day-create');
-if (repeatDayCreate) {
-    repeatDayCreate.addEventListener('input', () => {
-        repeatDayCreate.dataset.manual = '1';
-    });
+const dueDateCreate = document.getElementById('due-date-create');
+if (dueDateCreate) {
+    dueDateCreate.addEventListener('change', () => renderRepeatControls('create'));
 }
 
-const repeatDayEdit = document.getElementById('repeat-day-edit');
-if (repeatDayEdit) {
-    repeatDayEdit.addEventListener('input', () => {
-        repeatDayEdit.dataset.manual = '1';
-    });
+const dueDateEdit = document.getElementById('edit-due_date');
+if (dueDateEdit) {
+    dueDateEdit.addEventListener('change', () => renderRepeatControls('edit'));
 }
 
-toggleRepeatFields('create', true);
+setRepeatState('create', { type: 'none', interval: 1, anchor: 7 });
+setRepeatState('edit', { type: 'none', interval: 1, anchor: 7 });
 </script>
 
 <?php
