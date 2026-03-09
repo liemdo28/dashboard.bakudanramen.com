@@ -54,6 +54,51 @@ class Vendor {
         return $this->db->fetchAll("SELECT * FROM vendors ORDER BY name");
     }
 
+    public function getAllWithOverview() {
+        if (!$this->hasVendorsTable()) return [];
+        if (!$this->db->tableExists('bills') || !$this->db->tableExists('stores')) {
+            return $this->getAll();
+        }
+
+        return $this->db->fetchAll(
+            "SELECT
+                v.id,
+                v.name,
+                v.payment_url,
+                v.login_info,
+                v.notes,
+                v.is_active,
+                v.created_at,
+                v.updated_at,
+                COALESCE(GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR '||'), '') AS store_names,
+                (
+                    SELECT b2.due_date
+                    FROM bills b2
+                    WHERE b2.vendor_id = v.id
+                       OR (b2.vendor_id IS NULL AND LOWER(TRIM(b2.vendor)) = LOWER(TRIM(v.name)))
+                    ORDER BY (b2.due_date >= CURDATE()) DESC, b2.due_date ASC
+                    LIMIT 1
+                ) AS next_due_date,
+                (
+                    SELECT s2.name
+                    FROM bills b3
+                    JOIN stores s2 ON s2.id = b3.store_id
+                    WHERE b3.vendor_id = v.id
+                       OR (b3.vendor_id IS NULL AND LOWER(TRIM(b3.vendor)) = LOWER(TRIM(v.name)))
+                    ORDER BY (b3.due_date >= CURDATE()) DESC, b3.due_date ASC
+                    LIMIT 1
+                ) AS next_store_name
+             FROM vendors v
+             LEFT JOIN bills b ON b.vendor_id = v.id
+                OR (b.vendor_id IS NULL AND LOWER(TRIM(b.vendor)) = LOWER(TRIM(v.name)))
+             LEFT JOIN stores s ON s.id = b.store_id
+             GROUP BY
+                v.id, v.name, v.payment_url, v.login_info, v.notes,
+                v.is_active, v.created_at, v.updated_at
+             ORDER BY v.name"
+        );
+    }
+
     public function getAllActive() {
         if (!$this->hasVendorsTable()) return [];
         return $this->db->fetchAll("SELECT * FROM vendors WHERE is_active = 1 ORDER BY name");
