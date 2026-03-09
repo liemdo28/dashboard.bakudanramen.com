@@ -21,12 +21,15 @@ class VendorController {
         $name = trim($_POST['name'] ?? '');
         if ($name === '') { flash('error', 'Vendor name is required'); redirect('admin/vendors'); }
 
-        $this->vendorModel->create([
+        $vendorId = $this->vendorModel->createOrGet([
             'name' => $name,
             'payment_url' => trim($_POST['payment_url'] ?? ''),
             'login_info' => trim($_POST['login_info'] ?? ''),
             'notes' => trim($_POST['notes'] ?? ''),
         ]);
+        if ($vendorId) {
+            $this->vendorModel->syncBillsForVendor($vendorId, $name);
+        }
         flash('success', 'Vendor created');
         redirect('admin/vendors');
     }
@@ -39,12 +42,17 @@ class VendorController {
         $name = trim($_POST['name'] ?? '');
         if ($name === '') { flash('error', 'Vendor name is required'); redirect('admin/vendors'); }
 
+        $oldName = $vendor['name'];
         $this->vendorModel->update($id, [
             'name' => $name,
             'payment_url' => trim($_POST['payment_url'] ?? ''),
             'login_info' => trim($_POST['login_info'] ?? ''),
             'notes' => trim($_POST['notes'] ?? ''),
         ]);
+        $this->vendorModel->syncBillsForVendor($id, $name);
+        if ($oldName !== $name) {
+            $this->vendorModel->syncBillsForVendor($id, $name, $oldName);
+        }
         flash('success', 'Vendor updated');
         redirect('admin/vendors');
     }

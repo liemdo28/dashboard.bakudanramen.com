@@ -3,6 +3,10 @@ class Vendor {
     private $db;
     public function __construct() { $this->db = Database::getInstance(); }
 
+    private function normalizedName($name) {
+        return mb_strtolower(trim((string) $name));
+    }
+
     private function hasVendorsTable() {
         return $this->db->tableExists('vendors');
     }
@@ -26,12 +30,37 @@ class Vendor {
         return $this->db->fetch("SELECT * FROM vendors WHERE id = ?", [$id]);
     }
 
+    public function findByName($name) {
+        if (!$this->hasVendorsTable()) return null;
+        $normalized = $this->normalizedName($name);
+        if ($normalized === '') return null;
+
+        return $this->db->fetch(
+            "SELECT * FROM vendors WHERE LOWER(TRIM(name)) = ? LIMIT 1",
+            [$normalized]
+        );
+    }
+
     public function create($data) {
         if (!$this->hasVendorsTable()) return null;
         return $this->db->insert(
             "INSERT INTO vendors (name, payment_url, login_info, notes, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())",
             [$data['name'], $data['payment_url'] ?? null, $data['login_info'] ?? null, $data['notes'] ?? null]
         );
+    }
+
+    public function createOrGet($data) {
+        $existing = $this->findByName($data['name'] ?? '');
+        if ($existing) {
+            $this->update($existing['id'], [
+                'name' => $data['name'] ?? $existing['name'],
+                'payment_url' => $data['payment_url'] ?? $existing['payment_url'],
+                'login_info' => $data['login_info'] ?? $existing['login_info'],
+                'notes' => $data['notes'] ?? $existing['notes'],
+            ]);
+            return (int) $existing['id'];
+        }
+        return $this->create($data);
     }
 
     public function update($id, $data) {
@@ -84,10 +113,27 @@ class Vendor {
 
     // Quick create from bill form - returns new vendor ID
     public function quickCreate($name) {
-        if (!$this->hasVendorsTable()) return null;
-        return $this->db->insert(
-            "INSERT INTO vendors (name, is_active, created_at) VALUES (?, 1, NOW())",
-            [$name]
+        return $this->createOrGet([
+            'name' => $name,
+            'payment_url' => null,
+            'login_info' => null,
+            'notes' => null,
+        ]);
+    }
+
+    public function syncBillsForVendor($vendorId, $vendorName, $matchName = null) {
+        if (!$this->hasVendorsTable()) return 0;
+        if (!$this->db->columnExists('bills', 'vendor_id')) return 0;
+
+        $normalized = $this->normalizedName($matchName ?? $vendorName);
+        if ($normalized === '') return 0;
+
+        return $this->db->execute(
+            "UPDATE bills
+             SET vendor = ?, vendor_id = ?
+             WHERE vendor_id = ?
+             OR (vendor_id IS NULL AND LOWER(TRIM(vendor)) = ?)",
+            [$vendorName, $vendorId, $vendorId, $normalized]
         );
     }
 }
