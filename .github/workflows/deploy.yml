@@ -18,11 +18,14 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DREAMHOST_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan pdx1-shared-a3-05.dreamhost.com >> ~/.ssh/known_hosts
+          ssh-keyscan -p 22 pdx1-shared-a3-05.dreamhost.com >> ~/.ssh/known_hosts
+          printf "Host dreamhost\n  HostName pdx1-shared-a3-05.dreamhost.com\n  User liemdo0208\n  IdentityFile ~/.ssh/id_rsa\n  IdentitiesOnly yes\n  PubkeyAuthentication yes\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Upload to DreamHost
         run: |
           rsync -avz --delete \
-          --exclude ".git" \
-          --exclude ".github" \
-          ./ liemdo0208@pdx1-shared-a3-05.dreamhost.com:~/dashboard.bakudanramen.com/
+            --exclude ".git" \
+            --exclude ".github" \
+            -e "ssh -F ~/.ssh/config" \
+            ./ dreamhost:~/dashboard.bakudanramen.com/
