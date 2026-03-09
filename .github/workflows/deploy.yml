@@ -1,0 +1,28 @@
+name: Deploy to DreamHost
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DREAMHOST_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan pdx1-shared-a3-05.dreamhost.com >> ~/.ssh/known_hosts
+
+      - name: Upload to DreamHost
+        run: |
+          rsync -avz --delete \
+          --exclude ".git" \
+          --exclude ".github" \
+          ./ liemdo0208@pdx1-shared-a3-05.dreamhost.com:~/dashboard.bakudanramen.com/

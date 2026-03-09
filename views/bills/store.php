@@ -173,7 +173,13 @@ ob_start();
                     <?php foreach ($bills as $b):
                         $urgencyColor = dueColor($b['due_date'], $b['status']);
                     ?>
-                    <div class="bill-row bill-row-clickable" onclick="openEditModal(<?= $b['id'] ?>)">
+                    <div
+                        class="bill-row bill-row-clickable"
+                        data-bill-trigger="<?= (int)$b['id'] ?>"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Chỉnh sửa bill <?= e($b['title']) ?>"
+                    >
                         <div class="bill-left">
                             <span class="bill-dot" style="background:<?= e($urgencyColor) ?>"></span>
                             <div>
@@ -187,18 +193,19 @@ ob_start();
                                 </div>
                             </div>
                         </div>
-                        <div class="bill-right" onclick="event.stopPropagation()">
+                        <div class="bill-right">
                             <?php if (!empty($b['attachments'])): ?>
                                 <span class="text-muted text-sm" title="<?= count($b['attachments']) ?> file(s)">📎<?= count($b['attachments']) ?></span>
                             <?php endif; ?>
                             <span class="chip" style="border-color:<?= e($urgencyColor) ?>40;color:<?= e($urgencyColor) ?>"><?= e(date('d/m', strtotime($b['due_date']))) ?></span>
+                            <button type="button" class="btn btn-outline btn-sm bill-edit-action" data-bill-trigger="<?= (int)$b['id'] ?>">Edit</button>
                             <?php if ($b['status'] === 'paid'): ?>
                                 <span class="pill pill-ok">Paid</span>
                             <?php elseif ($b['status'] === 'overdue'): ?>
                                 <span class="badge-overdue" style="font-size:11px">Quá hạn</span>
-                                <a class="btn btn-ghost btn-sm" href="<?= APP_URL ?>/bills/<?= (int)$b['id'] ?>/paid">Pay</a>
+                                <a class="btn btn-ghost btn-sm" data-no-modal="true" href="<?= APP_URL ?>/bills/<?= (int)$b['id'] ?>/paid">Pay</a>
                             <?php else: ?>
-                                <a class="btn btn-ghost btn-sm" href="<?= APP_URL ?>/bills/<?= (int)$b['id'] ?>/paid">Pay</a>
+                                <a class="btn btn-ghost btn-sm" data-no-modal="true" href="<?= APP_URL ?>/bills/<?= (int)$b['id'] ?>/paid">Pay</a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -242,16 +249,17 @@ ob_start();
                         $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
                         $isToday = ($date === $today);
                         $dayBills = $billsByDate[$date] ?? [];
-                        echo '<div class="cal-cell '.($isToday?'cal-today':'').'">';
+                        $primaryBillId = !empty($dayBills) ? (int)$dayBills[0]['id'] : 0;
+                        echo '<div class="cal-cell '.($isToday?'cal-today ':'').(!empty($dayBills)?'cal-cell-interactive':'').'"'.($primaryBillId ? ' data-bill-trigger="'.$primaryBillId.'" tabindex="0" role="button"' : '').'>';
                         echo '<div class="cal-day">'.$day.'</div>';
                         if (!empty($dayBills)) {
                             echo '<div class="cal-items">';
                             foreach (array_slice($dayBills, 0, 4) as $b) {
                                 $urgColor = dueColor($b['due_date'], $b['status']);
                                 $amtLabel = (!empty($b['amount']) && $b['amount'] > 0) ? ' · '.fmtAmount($b['amount']) : '';
-                                echo '<div class="cal-item" style="border-left-color:'.e($urgColor).';background:'.e($urgColor).'15;cursor:pointer" onclick="openEditModal('.$b['id'].')">';
+                                echo '<button type="button" class="cal-item cal-item-button" data-bill-trigger="'.(int)$b['id'].'" style="border-left-color:'.e($urgColor).';background:'.e($urgColor).'15">';
                                 echo '<span class="cal-item-title">'.e($b['title']).$amtLabel.'</span>';
-                                echo '</div>';
+                                echo '</button>';
                             }
                             if (count($dayBills) > 4) echo '<div class="text-muted text-sm" style="margin-top:6px">+'.(count($dayBills)-4).' more</div>';
                             echo '</div>';
@@ -268,7 +276,7 @@ ob_start();
 </div>
 
 <!-- Edit Bill Modal -->
-<div class="modal-overlay" id="editModal" style="display:none" onclick="if(event.target===this)closeEditModal()">
+<div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()">
     <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
         <div class="modal-header">
             <h3 id="editModalTitle">Chỉnh sửa Bill</h3>
@@ -373,7 +381,16 @@ function openEditModal(billId) {
 
     // Set vendor
     const vendorSelect = document.getElementById('edit-vendor_id');
-    vendorSelect.value = bill.vendor_id || '';
+    const vendorNewInput = document.getElementById('vendor-new-edit');
+    vendorNewInput.value = '';
+    if (bill.vendor_id) {
+        vendorSelect.value = bill.vendor_id;
+    } else if (bill.vendor) {
+        vendorSelect.value = 'new';
+        vendorNewInput.value = bill.vendor;
+    } else {
+        vendorSelect.value = '';
+    }
     toggleNewVendor('edit');
 
     // Set color
@@ -405,11 +422,11 @@ function openEditModal(billId) {
     const statusLabels = { pending: 'Pending', paid: 'Paid', overdue: 'Overdue' };
     document.getElementById('editModalTitle').innerHTML = 'Chỉnh sửa Bill <span style="font-size:11px;padding:2px 8px;border-radius:8px;background:' + (statusColors[bill.status] || 'var(--text-muted)') + '20;color:' + (statusColors[bill.status] || 'var(--text-muted)') + ';font-weight:700;margin-left:8px">' + (statusLabels[bill.status] || bill.status) + '</span>';
 
-    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editModal').classList.add('active');
 }
 
 function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
+    document.getElementById('editModal').classList.remove('active');
 }
 
 function selectColor(context, hex, el) {
@@ -441,6 +458,26 @@ function escHtml(s) {
 
 // Close modal on Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+
+document.addEventListener('click', e => {
+    if (e.target.closest('[data-no-modal="true"]')) return;
+
+    const trigger = e.target.closest('[data-bill-trigger]');
+    if (!trigger) return;
+
+    e.preventDefault();
+    openEditModal(trigger.getAttribute('data-bill-trigger'));
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+
+    const trigger = e.target.closest('.bill-row-clickable, .cal-cell-interactive');
+    if (!trigger || trigger !== e.target) return;
+
+    e.preventDefault();
+    openEditModal(trigger.getAttribute('data-bill-trigger'));
+});
 </script>
 
 <?php

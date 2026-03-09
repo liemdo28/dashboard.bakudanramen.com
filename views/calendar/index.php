@@ -44,6 +44,32 @@ $monthNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng
 $dayNames = ['T2','T3','T4','T5','T6','T7','CN'];
 $priColors = ['urgent'=>'#dc2626','high'=>'#f59e0b','medium'=>'#3b82f6','low'=>'#71717a'];
 
+function normalizeCalendarHex($hex) {
+    $hex = trim((string)$hex);
+    if ($hex === '') return null;
+    if ($hex[0] === '#') $hex = substr($hex, 1);
+    if (strlen($hex) === 3) {
+        $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+    }
+    return preg_match('/^[0-9a-fA-F]{6}$/', $hex) ? strtolower($hex) : null;
+}
+
+function calendarTaskTextColor($hex) {
+    $normalized = normalizeCalendarHex($hex);
+    if (!$normalized) return '#f8fafc';
+
+    $r = hexdec(substr($normalized, 0, 2));
+    $g = hexdec(substr($normalized, 2, 2));
+    $b = hexdec(substr($normalized, 4, 2));
+    $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+
+    return $luminance > 0.68 ? '#050816' : '#f8fafc';
+}
+
+function calendarTaskBorderColor($textColor) {
+    return $textColor === '#050816' ? 'rgba(5, 8, 22, .18)' : 'rgba(248, 250, 252, .18)';
+}
+
 ob_start();
 ?>
 
@@ -80,15 +106,27 @@ ob_start();
             $isToday = ($dateStr === $today);
             $dayTasks = $tasksByDate[$dateStr] ?? [];
         ?>
-            <div class="calendar-cell <?= $isToday ? 'today' : '' ?>">
-                <div class="day-num"><?= $d ?></div>
+            <div class="calendar-cell <?= $isToday ? 'today' : '' ?> <?= !empty($dayTasks) ? 'has-events' : '' ?>">
+                <div class="calendar-day-meta">
+                    <div class="day-num"><?= $d ?></div>
+                    <?php if (!empty($dayTasks)): ?>
+                        <span class="calendar-count"><?= count($dayTasks) ?></span>
+                    <?php endif; ?>
+                </div>
                 <?php foreach (array_slice($dayTasks, 0, 3) as $t):
                     $color = $t['project_color'] ?? ($priColors[$t['priority']] ?? '#3b82f6');
                     if ($t['is_completed']) $color = '#22c55e';
+                    $textColor = calendarTaskTextColor($color);
+                    $borderColor = calendarTaskBorderColor($textColor);
                 ?>
-                    <div class="calendar-task" style="background:<?= e($color) ?>" onclick="location.href='<?= APP_URL ?>/tasks/<?= $t['id'] ?>'" title="<?= e($t['title']) ?>">
+                    <a
+                        class="calendar-task <?= $t['is_completed'] ? 'completed' : '' ?>"
+                        href="<?= APP_URL ?>/tasks/<?= $t['id'] ?>"
+                        style="background:<?= e($color) ?>;color:<?= e($textColor) ?>;border-color:<?= e($borderColor) ?>"
+                        title="<?= e($t['title']) ?> • <?= e($t['project_name'] ?? 'Task') ?>"
+                    >
                         <?= $t['is_completed'] ? '✓ ' : '' ?><?= e(mb_substr($t['title'], 0, 18)) ?>
-                    </div>
+                    </a>
                 <?php endforeach; ?>
                 <?php if (count($dayTasks) > 3): ?>
                     <div class="calendar-more">+<?= count($dayTasks) - 3 ?> thêm</div>
