@@ -120,8 +120,8 @@ ob_start();
                 <div class="form-group">
                     <label>Repeat</label>
                     <div class="repeat-builder">
-                        <div class="repeat-controls repeat-controls-inline">
-                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-create" onchange="renderRepeatControls('create')">
+                        <div class="repeat-controls repeat-controls-inline" style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap">
+                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-create" onchange="renderRepeatControls('create')" style="flex:1.2 1 0;min-width:0">
                                 <option value="none">Không lặp</option>
                                 <option value="hourly">Giờ</option>
                                 <option value="daily">Ngày</option>
@@ -129,8 +129,8 @@ ob_start();
                                 <option value="monthly">Tháng</option>
                                 <option value="yearly">Năm</option>
                             </select>
-                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-create" onchange="renderRepeatControls('create')"></select>
-                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-create"></select>
+                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-create" onchange="renderRepeatControls('create')" style="flex:0 0 96px;min-width:96px"></select>
+                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-create" style="flex:1.1 1 0;min-width:0"></select>
                         </div>
                         <div class="repeat-hint" id="repeat-hint-create"></div>
                     </div>
@@ -335,8 +335,8 @@ ob_start();
                 <div class="form-group">
                     <label>Repeat</label>
                     <div class="repeat-builder">
-                        <div class="repeat-controls repeat-controls-inline">
-                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-edit" onchange="renderRepeatControls('edit')">
+                        <div class="repeat-controls repeat-controls-inline" style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap">
+                            <select class="form-control repeat-type-select" name="repeat_type" id="repeat-type-edit" onchange="renderRepeatControls('edit')" style="flex:1.2 1 0;min-width:0">
                                 <option value="none">Không lặp</option>
                                 <option value="hourly">Giờ</option>
                                 <option value="daily">Ngày</option>
@@ -344,8 +344,8 @@ ob_start();
                                 <option value="monthly">Tháng</option>
                                 <option value="yearly">Năm</option>
                             </select>
-                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-edit" onchange="renderRepeatControls('edit')"></select>
-                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-edit"></select>
+                            <select class="form-control repeat-number" name="repeat_interval" id="repeat-interval-edit" onchange="renderRepeatControls('edit')" style="flex:0 0 96px;min-width:96px"></select>
+                            <select class="form-control repeat-anchor-select" name="repeat_anchor" id="repeat-anchor-edit" style="flex:1.1 1 0;min-width:0"></select>
                         </div>
                         <div class="repeat-hint" id="repeat-hint-edit"></div>
                     </div>
