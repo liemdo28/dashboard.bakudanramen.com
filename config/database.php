@@ -89,7 +89,14 @@ class Database {
             return $this->tableCache[$table];
         }
 
-        $exists = (bool) $this->fetch("SHOW TABLES LIKE ?", [$table]);
+        $exists = (bool) $this->fetch(
+            "SELECT 1
+             FROM information_schema.tables
+             WHERE table_schema = ?
+             AND table_name = ?
+             LIMIT 1",
+            [DB_NAME, $table]
+        );
         $this->tableCache[$table] = $exists;
         return $exists;
     }
@@ -105,7 +112,15 @@ class Database {
             return false;
         }
 
-        $exists = (bool) $this->fetch("SHOW COLUMNS FROM `$table` LIKE ?", [$column]);
+        $exists = (bool) $this->fetch(
+            "SELECT 1
+             FROM information_schema.columns
+             WHERE table_schema = ?
+             AND table_name = ?
+             AND column_name = ?
+             LIMIT 1",
+            [DB_NAME, $table, $column]
+        );
         $this->columnCache[$cacheKey] = $exists;
         return $exists;
     }
