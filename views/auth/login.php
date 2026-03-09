@@ -14,40 +14,19 @@
 
 <body class="login-page">
 
-<div class="auth-shell">
-    <section class="auth-hero">
-        <span class="auth-badge">Neon ops workspace</span>
-
-        <div class="auth-brand">
-            <h1>Task<span>Flow</span></h1>
-            <p class="auth-team">Hoang Le Team</p>
-        </div>
-
-        <p class="auth-lead">
-            Theo dõi task, deadline, notification và bill trong một không gian neon gọn mắt hơn.
-        </p>
-
-        <div class="auth-highlights">
-            <div class="auth-highlight">
-                <strong>Task Control</strong>
-                <span>Kanban, calendar, deadline trong một luồng làm việc.</span>
-            </div>
-            <div class="auth-highlight">
-                <strong>Bill Tracking</strong>
-                <span>Due date, trạng thái thanh toán và reminder rõ ràng.</span>
-            </div>
-            <div class="auth-highlight">
-                <strong>Team Signal</strong>
-                <span>Inbox thông báo và update theo thời gian thực.</span>
+<div class="login-compact">
+    <div class="login-box login-focus-card">
+        <div class="login-brand">
+            <div class="login-brand-mark">TF</div>
+            <div class="login-brand-meta">
+                <h1>Task<span>Flow</span></h1>
+                <p>Hoang Le Team</p>
             </div>
         </div>
-    </section>
 
-    <div class="login-box auth-panel">
-        <div class="auth-panel-head">
-            <p class="auth-kicker">Sign in</p>
+        <div class="login-panel-note">
             <h2>Đăng nhập để tiếp tục</h2>
-            <p class="auth-subtitle">Dùng tài khoản team để vào dashboard.</p>
+            <p>Task, bill và calendar trong một chỗ, nhưng lần này nhìn rõ hơn.</p>
         </div>
 
         <?php if ($msg = flash('error')): ?>
@@ -89,7 +68,7 @@
             </button>
         </form>
 
-        <div class="auth-footer">
+        <div class="auth-footer login-compact-footer">
             <span>Chưa có tài khoản?</span>
             <a href="<?= APP_URL ?>/register">Đăng ký ngay</a>
         </div>
