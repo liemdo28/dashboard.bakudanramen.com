@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"CREATE TABLE.*stores\\\\|CREATE TABLE.*bills\")"
+    ]
+  }
+}
