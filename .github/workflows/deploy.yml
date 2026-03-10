@@ -21,7 +21,23 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.DREAMHOST_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          ssh-keygen -lf ~/.ssh/id_rsa
           ssh-keyscan -p 22 "$DREAMHOST_HOST" >> ~/.ssh/known_hosts
+
+      - name: Test SSH login
+        run: |
+          ssh -T "$DREAMHOST_USER@$DREAMHOST_HOST" \
+            -i "$HOME/.ssh/id_rsa" \
+            -o IdentitiesOnly=yes \
+            -o IdentityAgent=none \
+            -o PreferredAuthentications=publickey \
+            -o PubkeyAuthentication=yes \
+            -o PasswordAuthentication=no \
+            -o KbdInteractiveAuthentication=no \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "echo 'SSH OK'"
 
       - name: Upload to DreamHost
         run: |
