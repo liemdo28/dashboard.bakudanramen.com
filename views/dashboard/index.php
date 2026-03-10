@@ -1,10 +1,10 @@
 <?php
 function ui_status($status) {
   $map = [
-    'todo' => ['To do', 'pill pill-neutral'],
-    'in_progress' => ['In progress', 'pill pill-info'],
-    'review' => ['Review', 'pill pill-warn'],
-    'done' => ['Done', 'pill pill-ok'],
+    'todo' => [t('dashboard.status.todo'), 'pill pill-neutral'],
+    'in_progress' => [t('dashboard.status.in_progress'), 'pill pill-info'],
+    'review' => [t('dashboard.status.review'), 'pill pill-warn'],
+    'done' => [t('dashboard.status.done'), 'pill pill-ok'],
   ];
   $key = $status ?: 'todo';
   return $map[$key] ?? [ucfirst(str_replace('_',' ',$key)), 'pill pill-neutral'];
@@ -19,16 +19,16 @@ function ui_priority($p) {
 }
 
 function ui_due($dueDate) {
-  if (empty($dueDate)) return ['No due', 'chip chip-muted'];
+  if (empty($dueDate)) return [t('common.no_due'), 'chip chip-muted'];
   $ts = strtotime($dueDate);
   if (!$ts) return [$dueDate, 'chip chip-muted'];
 
   $today = strtotime(date('Y-m-d'));
   $diffDays = (int) floor(($ts - $today) / 86400);
 
-  if ($diffDays < 0) return ['Overdue ' . abs($diffDays) . 'd', 'chip chip-danger'];
-  if ($diffDays === 0) return ['Due today', 'chip chip-warn'];
-  if ($diffDays <= 3) return ['Due in ' . $diffDays . 'd', 'chip chip-info'];
+  if ($diffDays < 0) return [t('common.overdue_days', ['days' => abs($diffDays)]), 'chip chip-danger'];
+  if ($diffDays === 0) return [t('common.due_today'), 'chip chip-warn'];
+  if ($diffDays <= 3) return [t('common.due_in_days', ['days' => $diffDays]), 'chip chip-info'];
   return [date('M d', $ts), 'chip chip-muted'];
 }
 
@@ -36,7 +36,7 @@ function ui_task_url($taskId) {
   return 'index.php?route=tasks/view&id=' . urlencode($taskId);
 }
 
-$pageTitle = 'Dashboard';
+$pageTitle = t('page.dashboard');
 $currentPage = 'dashboard';
 ob_start();
 ?>
@@ -47,28 +47,28 @@ ob_start();
         <div class="stat-icon red">📁</div>
         <div>
             <div class="stat-value"><?= $totalProjects ?></div>
-            <div class="stat-label">Projects</div>
+            <div class="stat-label"><?= e(t('dashboard.projects')) ?></div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon dark">📋</div>
         <div>
             <div class="stat-value"><?= $totalTasks ?></div>
-            <div class="stat-label">Tổng Tasks</div>
+            <div class="stat-label"><?= e(t('dashboard.total_tasks')) ?></div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon green">✅</div>
         <div>
             <div class="stat-value"><?= $completedTasks ?></div>
-            <div class="stat-label">Hoàn thành</div>
+            <div class="stat-label"><?= e(t('dashboard.completed')) ?></div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon blue">👥</div>
         <div>
             <div class="stat-value"><?= $totalMembers ?></div>
-            <div class="stat-label">Thành viên</div>
+            <div class="stat-label"><?= e(t('dashboard.members')) ?></div>
         </div>
     </div>
 </div>
@@ -76,7 +76,7 @@ ob_start();
 <div class="grid grid-2 mb-4">
     <!-- Task Distribution -->
     <div class="card">
-        <div class="card-header"><h3>📊 Phân bố Tasks</h3></div>
+        <div class="card-header"><h3>📊 <?= e(t('dashboard.task_distribution')) ?></h3></div>
         <div class="card-body">
             <?php
             $statusMap = ['todo'=>0,'in_progress'=>0,'review'=>0,'done'=>0];
@@ -100,12 +100,12 @@ ob_start();
     <!-- Overdue -->
     <div class="card">
         <div class="card-header">
-            <h3>⚠️ Tasks quá hạn</h3>
+            <h3>⚠️ <?= e(t('dashboard.overdue_tasks')) ?></h3>
             <span class="badge badge-admin"><?= count($overdueTasks) ?></span>
         </div>
         <div class="card-body">
             <?php if (empty($overdueTasks)): ?>
-                <p class="text-muted text-center" style="padding:16px">Không có task quá hạn 🎉</p>
+                <p class="text-muted text-center" style="padding:16px"><?= e(t('dashboard.no_overdue')) ?></p>
             <?php else: ?>
                 <?php foreach (array_slice($overdueTasks, 0, 5) as $task): ?>
                 <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
@@ -124,7 +124,7 @@ ob_start();
 <!-- My Tasks -->
 <div class="card mb-4">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <h3>📌 Tasks của tôi</h3>
+        <h3>📌 <?= e(t('dashboard.my_tasks')) ?></h3>
         <span class="text-muted text-sm"><?= count($myTasks) ?> tasks</span>
     </div>
 
@@ -132,8 +132,8 @@ ob_start();
         <?php if (empty($myTasks)): ?>
             <div class="empty-state">
                 <div class="icon">📝</div>
-                <h3>Chưa có task</h3>
-                <p>Bạn chưa được gán task nào</p>
+                <h3><?= e(t('dashboard.no_tasks')) ?></h3>
+                <p><?= e(t('dashboard.no_assigned_tasks')) ?></p>
             </div>
         <?php else: ?>
 
@@ -184,8 +184,8 @@ ob_start();
 
 <!-- Projects -->
 <div class="flex-between mb-3">
-    <h3 style="font-size:15px;font-weight:700">Projects gần đây</h3>
-    <a href="<?= APP_URL ?>/projects/create" class="btn btn-primary btn-sm">+ Tạo Project</a>
+    <h3 style="font-size:15px;font-weight:700"><?= e(t('dashboard.recent_projects')) ?></h3>
+    <a href="<?= APP_URL ?>/projects/create" class="btn btn-primary btn-sm"><?= e(t('dashboard.create_project')) ?></a>
 </div>
 
 <div class="grid grid-3">
@@ -196,12 +196,12 @@ ob_start();
         <div class="card-accent" style="background:<?= e($proj['color']) ?>"></div>
         <div class="card-content">
             <h3><?= e($proj['name']) ?></h3>
-            <p><?= e(mb_substr($proj['description'] ?? 'Chưa có mô tả', 0, 60)) ?></p>
+            <p><?= e(mb_substr($proj['description'] ?? t('common.untitled'), 0, 60)) ?></p>
             <div class="progress-bar">
                 <div class="progress-fill" style="width:<?= $pct ?>%;background:<?= e($proj['color']) ?>"></div>
             </div>
             <div class="card-footer">
-                <span><?= $pct ?>% hoàn thành</span>
+                <span><?= $pct . e(t('dashboard.complete_percent')) ?></span>
                 <span><?= $proj['task_count'] ?> tasks</span>
             </div>
         </div>
@@ -262,12 +262,12 @@ $content = ob_get_clean();
 $googleConnected = $googleConnected ?? false;
 
 $headerActions = ''
-  . '<a href="' . APP_URL . '/projects/create" class="btn btn-primary btn-sm">+ Tạo Project</a>'
+  . '<a href="' . APP_URL . '/projects/create" class="btn btn-primary btn-sm">' . e(t('dashboard.create_project')) . '</a>'
   . ' '
   . (
       $googleConnected
-      ? '<span class="btn btn-sm btn-secondary" style="cursor:default;opacity:.9">✅ Google Connected</span>'
-      : '<a href="' . APP_URL . '/google/connect" class="btn btn-sm btn-secondary">Connect Google Calendar</a>'
+      ? '<span class="btn btn-sm btn-secondary" style="cursor:default;opacity:.9">' . e(t('dashboard.google_connected')) . '</span>'
+      : '<a href="' . APP_URL . '/google/connect" class="btn btn-sm btn-secondary">' . e(t('dashboard.connect_google')) . '</a>'
     );
 
 require __DIR__ . '/../layouts/main.php';

@@ -22,11 +22,11 @@ function tf_icon($name) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="<?= e(current_locale()) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle ?? 'Dashboard') ?> - <?= APP_NAME ?></title>
+    <title><?= e($pageTitle ?? t('page.dashboard')) ?> - <?= APP_NAME ?></title>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css">
     <link rel="manifest" href="<?= APP_URL ?>/manifest.json">
     <meta name="theme-color" content="#dc2626">
@@ -46,30 +46,30 @@ function tf_icon($name) {
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <a href="<?= APP_URL ?>/dashboard" class="nav-item <?= ($currentPage ?? '') === 'dashboard' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('dashboard') ?></span> Dashboard
+                    <span class="icon"><?= tf_icon('dashboard') ?></span> <?= e(t('nav.dashboard')) ?>
                 </a>
 
                 <a href="<?= APP_URL ?>/inbox" class="nav-item <?= ($currentPage ?? '') === 'inbox' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('inbox') ?></span> Inbox
+                    <span class="icon"><?= tf_icon('inbox') ?></span> <?= e(t('nav.inbox')) ?>
                     <?php if (($unreadCount ?? 0) > 0): ?>
                         <span class="badge danger"><?= (int)$unreadCount ?></span>
                     <?php endif; ?>
                 </a>
 
                 <a href="<?= APP_URL ?>/my-tasks" class="nav-item <?= ($currentPage ?? '') === 'my-tasks' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('pin') ?></span> Task của tôi
+                    <span class="icon"><?= tf_icon('pin') ?></span> <?= e(t('nav.my_tasks')) ?>
                 </a>
 
                 <a href="<?= APP_URL ?>/calendar" class="nav-item <?= ($currentPage ?? '') === 'calendar' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('calendar') ?></span> Calendar
+                    <span class="icon"><?= tf_icon('calendar') ?></span> <?= e(t('nav.calendar')) ?>
                 </a>
 
                 <a href="<?= APP_URL ?>/bills" class="nav-item <?= ($currentPage ?? '') === 'bills' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('bill') ?></span> Tracking Bill
+                    <span class="icon"><?= tf_icon('bill') ?></span> <?= e(t('nav.bills')) ?>
                 </a>
 
                 <a href="<?= APP_URL ?>/projects" class="nav-item <?= ($currentPage ?? '') === 'projects' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('projects') ?></span> Projects
+                    <span class="icon"><?= tf_icon('projects') ?></span> <?= e(t('nav.projects')) ?>
                 </a>
             </div>
 
@@ -79,7 +79,7 @@ function tf_icon($name) {
             if (!empty($sidebarProjects)):
             ?>
             <div class="nav-section">
-                <div class="nav-section-title">Dự án</div>
+                <div class="nav-section-title"><?= e(t('nav.projects_section')) ?></div>
                 <?php foreach (array_slice($sidebarProjects, 0, 10) as $sp): ?>
                 <a href="<?= APP_URL ?>/projects/<?= $sp['id'] ?>" class="nav-item <?= (isset($project) && $project['id'] == $sp['id']) ? 'active' : '' ?>">
                     <span class="project-dot" style="background:<?= e($sp['color']) ?>"></span>
@@ -92,12 +92,12 @@ function tf_icon($name) {
 
             <?php if (isAdmin()): ?>
             <div class="nav-section">
-                <div class="nav-section-title">Admin</div>
+                <div class="nav-section-title"><?= e(t('nav.admin')) ?></div>
                 <a href="<?= APP_URL ?>/admin/users" class="nav-item <?= ($currentPage ?? '') === 'admin-users' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('admin') ?></span> Quản lý Users
+                    <span class="icon"><?= tf_icon('admin') ?></span> <?= e(t('nav.users')) ?>
                 </a>
                 <a href="<?= APP_URL ?>/admin/vendors" class="nav-item <?= ($currentPage ?? '') === 'admin-vendors' ? 'active' : '' ?>">
-                    <span class="icon"><?= tf_icon('vendor') ?></span> Vendor List
+                    <span class="icon"><?= tf_icon('vendor') ?></span> <?= e(t('nav.vendors')) ?>
                 </a>
             </div>
             <?php endif; ?>
@@ -110,7 +110,7 @@ function tf_icon($name) {
                     <div class="name"><?= e($user['name']) ?></div>
                     <div class="role"><?= ucfirst($user['role']) ?></div>
                 </div>
-                <a href="<?= APP_URL ?>/logout" class="btn-ghost" title="Đăng xuất">
+                <a href="<?= APP_URL ?>/logout" class="btn-ghost" title="<?= e(t('action.logout')) ?>">
                     <?= tf_icon('logout') ?>
                 </a>
             </div>
@@ -124,10 +124,14 @@ function tf_icon($name) {
                 <div class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
                     <?= tf_icon('menu') ?>
                 </div>
-                <h2><?= e($pageTitle ?? 'Dashboard') ?></h2>
+                <h2><?= e($pageTitle ?? t('page.dashboard')) ?></h2>
             </div>
 
             <div class="header-actions">
+                <div class="lang-switcher" aria-label="<?= e(t('header.language')) ?>">
+                    <a href="<?= e(language_switch_url('vi')) ?>" class="lang-chip <?= current_locale() === 'vi' ? 'active' : '' ?>">VI</a>
+                    <a href="<?= e(language_switch_url('en')) ?>" class="lang-chip <?= current_locale() === 'en' ? 'active' : '' ?>">EN</a>
+                </div>
                 <?= $headerActions ?? '' ?>
 
                 <!-- Notification Bell -->
@@ -140,11 +144,11 @@ function tf_icon($name) {
                     </button>
                     <div class="notif-dropdown" id="notifDropdown">
                         <div class="notif-dropdown-header">
-                            <span>Thông báo</span>
-                            <button class="btn btn-sm btn-secondary" onclick="markAllNotifRead()">Đọc hết</button>
+                            <span><?= e(t('header.notifications')) ?></span>
+                            <button class="btn btn-sm btn-secondary" onclick="markAllNotifRead()"><?= e(t('header.read_all')) ?></button>
                         </div>
                         <div id="notifList">
-                            <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">Đang tải...</div>
+                            <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px"><?= e(t('header.loading')) ?></div>
                         </div>
                     </div>
                 </div>

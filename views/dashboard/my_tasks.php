@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Task của tôi';
+$pageTitle = t('page.my_tasks');
 $currentPage = 'my-tasks';
 ob_start();
 ?>
@@ -7,7 +7,7 @@ ob_start();
 <?php if (!empty($overdueTasks)): ?>
 <div class="card mb-4" style="border-color:var(--accent-border)">
     <div class="card-header" style="background:var(--accent-bg)">
-        <h3 style="color:var(--accent)">⚠️ Quá hạn (<?= count($overdueTasks) ?>)</h3>
+        <h3 style="color:var(--accent)">⚠️ <?= e(t('tasks.overdue')) ?> (<?= count($overdueTasks) ?>)</h3>
     </div>
     <div class="card-body" style="padding:0">
         <table class="data-table">
@@ -30,15 +30,15 @@ ob_start();
 
 <div class="card">
     <div class="card-header">
-        <h3>📌 Tất cả tasks được giao</h3>
+        <h3>📌 <?= e(t('tasks.all_assigned')) ?></h3>
         <span class="text-muted text-sm"><?= count($myTasks) ?> tasks</span>
     </div>
     <div class="card-body" style="padding:0">
         <?php if (empty($myTasks)): ?>
-            <div class="empty-state"><div class="icon">📝</div><h3>Chưa có task nào</h3><p>Bạn chưa được gán task nào</p></div>
+            <div class="empty-state"><div class="icon">📝</div><h3><?= e(t('tasks.none')) ?></h3><p><?= e(t('tasks.none_assigned')) ?></p></div>
         <?php else: ?>
         <table class="data-table">
-            <thead><tr><th style="width:30px"></th><th>Task</th><th>Project</th><th>Ưu tiên</th><th>Trạng thái</th><th>Hạn</th></tr></thead>
+            <thead><tr><th style="width:30px"></th><th><?= e(t('tasks.task')) ?></th><th><?= e(t('tasks.project')) ?></th><th><?= e(t('tasks.priority')) ?></th><th><?= e(t('tasks.status')) ?></th><th><?= e(t('tasks.due')) ?></th></tr></thead>
             <tbody>
             <?php foreach ($myTasks as $task): ?>
             <tr>

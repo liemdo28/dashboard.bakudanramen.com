@@ -1528,6 +1528,40 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     border:1px solid rgba(182,255,0,.25);
 }
 
+.lang-switcher,
+.login-lang-switcher{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.lang-chip,
+.login-lang-chip{
+    min-width:40px;
+    padding:8px 12px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:rgba(255,255,255,.04);
+    color:var(--text-muted);
+    text-decoration:none;
+    text-align:center;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.08em;
+    transition:var(--transition);
+}
+.lang-chip:hover,
+.login-lang-chip:hover{
+    color:var(--text);
+    border-color:rgba(255,255,255,.18);
+}
+.lang-chip.active,
+.login-lang-chip.active{
+    color:#fff;
+    background:rgba(220,38,38,.18);
+    border-color:rgba(220,38,38,.55);
+    box-shadow:0 0 16px rgba(220,38,38,.18);
+}
+
 /* Bill row clickable */
 .bill-row-clickable{cursor:pointer;border-radius:10px;padding:10px 12px !important;transition:background .12s ease}
 .bill-row-clickable:hover{background:var(--bg-tertiary)}

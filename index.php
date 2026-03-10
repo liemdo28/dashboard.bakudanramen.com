@@ -6,6 +6,7 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/i18n.php';
 require_once __DIR__ . '/models/User.php';
 require_once __DIR__ . '/models/Project.php';
 require_once __DIR__ . '/models/Task.php';
@@ -50,6 +51,20 @@ function dueColor($dueDate, $status = 'pending') {
 $route = isset($_GET['route']) ? trim($_GET['route'], '/') : '';
 $method = $_SERVER['REQUEST_METHOD'];
 $publicRoutes = ['login', 'register', 'manifest.json', 'sw.js'];
+
+if (preg_match('/^language\/([a-z]{2})$/', $route, $m)) {
+    $locale = set_locale($m[1]);
+    $redirectTo = $_GET['redirect'] ?? ($_SERVER['HTTP_REFERER'] ?? APP_URL . '/dashboard');
+    $redirectTo = trim((string) $redirectTo);
+    if ($redirectTo === '') {
+        $redirectTo = APP_URL . '/dashboard';
+    }
+    if (strpos($redirectTo, APP_URL) !== 0 && strpos($redirectTo, '/') !== 0) {
+        $redirectTo = APP_URL . '/dashboard';
+    }
+    header('Location: ' . $redirectTo);
+    exit;
+}
 
 // PWA Manifest
 if ($route === 'manifest.json') {

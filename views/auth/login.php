@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="<?= e(current_locale()) ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>TaskFlow - Hoang Le Team</title>
+<title><?= e(t('page.login')) ?> - TaskFlow</title>
 
 <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css">
 <link rel="manifest" href="<?= APP_URL ?>/manifest.json">
@@ -46,6 +46,34 @@ body.login-page::after {
     max-width: 460px;
     position: relative;
     z-index: 1;
+}
+
+.login-lang-switcher {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.login-lang-chip {
+    min-width: 44px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.72);
+    text-decoration: none;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+}
+
+.login-lang-chip.active {
+    color: #ffffff;
+    border-color: rgba(255, 48, 79, .55);
+    background: rgba(255, 48, 79, .14);
+    box-shadow: 0 0 16px rgba(255, 48, 79, .14);
 }
 
 .login-stage::before {
@@ -296,6 +324,10 @@ body.login-page::after {
 
 <body class="login-page">
 <div class="login-stage">
+    <div class="login-lang-switcher">
+        <a href="<?= e(language_switch_url('vi')) ?>" class="login-lang-chip <?= current_locale() === 'vi' ? 'active' : '' ?>">VI</a>
+        <a href="<?= e(language_switch_url('en')) ?>" class="login-lang-chip <?= current_locale() === 'en' ? 'active' : '' ?>">EN</a>
+    </div>
     <div class="login-card">
         <div class="login-top">
             <div class="login-mark">TF</div>
@@ -306,8 +338,8 @@ body.login-page::after {
         </div>
 
         <div class="login-copy">
-            <div class="eyebrow">Secure Access</div>
-            <h2>Đăng nhập để tiếp tục</h2>
+            <div class="eyebrow"><?= e(t('auth.secure_access')) ?></div>
+            <h2><?= e(t('auth.sign_in_continue')) ?></h2>
         </div>
 
         <?php if ($msg = flash('error')): ?>
@@ -321,7 +353,7 @@ body.login-page::after {
         <div class="login-form-wrap">
             <form method="POST" action="<?= APP_URL ?>/login">
                 <div class="form-group">
-                    <label for="email">Email</label>
+                    <label for="email"><?= e(t('auth.email')) ?></label>
                     <input
                         type="email"
                         id="email"
@@ -334,7 +366,7 @@ body.login-page::after {
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Mật khẩu</label>
+                    <label for="password"><?= e(t('auth.password')) ?></label>
                     <input
                         type="password"
                         id="password"
@@ -345,13 +377,13 @@ body.login-page::after {
                     >
                 </div>
 
-                <button type="submit" class="btn login-submit">Đăng nhập</button>
+                <button type="submit" class="btn login-submit"><?= e(t('auth.sign_in')) ?></button>
             </form>
         </div>
 
         <div class="login-bottom">
-            <span>Chưa có tài khoản?</span>
-            <a href="<?= APP_URL ?>/register">Đăng ký ngay</a>
+            <span><?= e(t('auth.no_account')) ?></span>
+            <a href="<?= APP_URL ?>/register"><?= e(t('auth.register_now')) ?></a>
         </div>
     </div>
 </div>

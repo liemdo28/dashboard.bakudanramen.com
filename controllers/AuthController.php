@@ -11,9 +11,9 @@ class AuthController {
     public function login() {
         $email = strtolower(trim($_POST['email'] ?? ''));
         $password = $_POST['password'] ?? '';
-        if ($email === '' || $password === '') { flash('error', 'Vui lòng nhập email và mật khẩu.'); redirect('login'); }
+        if ($email === '' || $password === '') { flash('error', t('auth.enter_credentials')); redirect('login'); }
         $user = $this->userModel->verify($email, $password);
-        if (!$user) { flash('error', 'Email hoặc mật khẩu không đúng.'); redirect('login'); }
+        if (!$user) { flash('error', t('auth.invalid_credentials')); redirect('login'); }
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_role'] = $user['role'];
@@ -32,19 +32,19 @@ class AuthController {
         $confirm = $_POST['password_confirm'] ?? '';
 
         if ($name === '' || $email === '' || $password === '') {
-            flash('error', 'Vui lòng điền đầy đủ thông tin.');
+            flash('error', t('auth.fill_required'));
             redirect('register');
         }
         if (strlen($password) < 6) {
-            flash('error', 'Mật khẩu tối thiểu 6 ký tự.');
+            flash('error', t('auth.password_short'));
             redirect('register');
         }
         if ($password !== $confirm) {
-            flash('error', 'Mật khẩu xác nhận không khớp.');
+            flash('error', t('auth.password_mismatch'));
             redirect('register');
         }
         if ($this->userModel->findByEmail($email)) {
-            flash('error', 'Email đã được sử dụng.');
+            flash('error', t('auth.email_used'));
             redirect('register');
         }
 
@@ -58,8 +58,8 @@ class AuthController {
         // Auto-create a default project
         $proj = new Project();
         $proj->create([
-            'name' => 'Dự án đầu tiên',
-            'description' => 'Project mặc định - bạn có thể đổi tên hoặc xoá.',
+            'name' => t('seed.first_project'),
+            'description' => t('seed.first_project_desc'),
             'color' => '#dc2626',
             'owner_id' => $id
         ]);
@@ -68,7 +68,7 @@ class AuthController {
         $_SESSION['user_name'] = $name;
         $_SESSION['user_role'] = 'member';
 
-        flash('success', 'Đăng ký thành công! Chào mừng bạn đến với TaskFlow.');
+        flash('success', t('auth.register_success'));
         redirect('dashboard');
     }
 
@@ -86,26 +86,26 @@ class AuthController {
         $email = strtolower(trim($_POST['email'] ?? ''));
         $password = $_POST['password'] ?? '';
         $role = $_POST['role'] ?? 'member';
-        if ($name === '' || $email === '' || $password === '') { flash('error', 'Vui lòng điền đầy đủ.'); redirect('admin/users'); }
-        if ($this->userModel->findByEmail($email)) { flash('error', 'Email đã tồn tại.'); redirect('admin/users'); }
+        if ($name === '' || $email === '' || $password === '') { flash('error', t('auth.fill_all_short')); redirect('admin/users'); }
+        if ($this->userModel->findByEmail($email)) { flash('error', t('auth.email_exists')); redirect('admin/users'); }
         $this->userModel->create(['name'=>$name, 'email'=>$email, 'password'=>$password, 'role'=>$role]);
-        flash('success', 'Tạo tài khoản thành công.');
+        flash('success', t('auth.user_create_success'));
         redirect('admin/users');
     }
 
     public function toggleUser($id) {
         if (!isAdmin()) redirect('dashboard');
-        if ((int)$id === (int)$_SESSION['user_id']) { flash('error', 'Không thể vô hiệu hóa chính mình.'); redirect('admin/users'); }
+        if ((int)$id === (int)$_SESSION['user_id']) { flash('error', t('auth.cannot_disable_self')); redirect('admin/users'); }
         $this->userModel->toggleActive($id);
-        flash('success', 'Cập nhật trạng thái thành công.');
+        flash('success', t('auth.user_status_updated'));
         redirect('admin/users');
     }
 
     public function deleteUser($id) {
         if (!isAdmin()) redirect('dashboard');
-        if ((int)$id === (int)$_SESSION['user_id']) { flash('error', 'Không thể xóa chính mình.'); redirect('admin/users'); }
+        if ((int)$id === (int)$_SESSION['user_id']) { flash('error', t('auth.cannot_delete_self')); redirect('admin/users'); }
         $this->userModel->delete($id);
-        flash('success', 'Xóa tài khoản thành công.');
+        flash('success', t('auth.user_deleted'));
         redirect('admin/users');
     }
 }

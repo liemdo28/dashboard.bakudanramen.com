@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Calendar';
+$pageTitle = t('page.calendar');
 $currentPage = 'calendar';
 
 // Calendar logic
@@ -80,7 +80,7 @@ ob_start();
         </div>
         <h3><?= $monthNames[$month] ?> <?= $year ?></h3>
         <div class="calendar-nav" style="gap:6px">
-            <a href="<?= APP_URL ?>/calendar?month=<?= (int)date('m') ?>&year=<?= (int)date('Y') ?>" class="btn btn-sm btn-outline">Hôm nay</a>
+            <a href="<?= APP_URL ?>/calendar?month=<?= (int)date('m') ?>&year=<?= (int)date('Y') ?>" class="btn btn-sm btn-outline"><?= e(t('common.today')) ?></a>
             <a href="<?= APP_URL ?>/calendar?month=<?= $nextMonth ?>&year=<?= $nextYear ?>" class="btn btn-secondary btn-sm">›</a>
         </div>
     </div>
