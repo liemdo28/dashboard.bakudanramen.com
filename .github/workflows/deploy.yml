@@ -19,14 +19,22 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DREAMHOST_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "${{ secrets.DREAMHOST_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22 "$DREAMHOST_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload to DreamHost
         run: |
+          export RSYNC_RSH="ssh -i $HOME/.ssh/id_rsa \
+            -o IdentitiesOnly=yes \
+            -o IdentityAgent=none \
+            -o PreferredAuthentications=publickey \
+            -o PubkeyAuthentication=yes \
+            -o PasswordAuthentication=no \
+            -o KbdInteractiveAuthentication=no \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes"
           rsync -avz --delete \
             --exclude ".git" \
             --exclude ".github" \
-            -e "ssh -i $HOME/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
             ./ "$DREAMHOST_USER@$DREAMHOST_HOST:~/dashboard.bakudanramen.com/"
